@@ -1,0 +1,42 @@
+<?php $_product = $block->getProduct(); ?>
+<?php $banner = $block->getBannerData(); ?>
+
+<button 
+    class="ivy-checkout-button ivy-product-button" 
+    data-cart-value="<?= $_product->getFinalPrice() ?>"
+    data-shop-category="<?= $banner->getMcc() ?>"
+    data-currency-code="<?= $_product->getStore()->getCurrentCurrencyCode(); ?>"
+    data-locale="<?= $banner->getLocale() ?>"
+    style="visibility: hidden; display:none">
+</button>
+
+<script>
+require(['jquery','mage/url','Magento_Ui/js/model/messageList','domReady!'], function ($,url,messageList) {
+    $( ".ivy-product-button" ).on('click', function(event) {
+        event.preventDefault();
+        if ($('#product_addtocart_form').valid()) {
+            $('#product_addtocart_form').submit();
+            $("body").trigger('processStart');
+            setTimeout(function () {
+                var linkUrl = url.build('ivypayment/checkout/index/express/1');
+                $.ajax({
+                    url: linkUrl,
+                    type: 'POST',
+                    success: function(response) {
+                        $("body").trigger('processStop');
+                        window.startIvyCheckout(response.redirectUrl,'popup')
+                    },
+                    error: function(xhr, status, errorThrown) {
+                        $("body").trigger('processStop');
+                        messageList.addErrorMessage({ message: errorThrown });
+                    }
+                });
+            }, 3000);
+        }
+    });
+    setTimeout(function () {
+        $('.ivy-product-button').show();
+    }, 3000);
+}); 
+  
+</script>

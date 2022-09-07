@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * Copyright © Magento, Inc. All rights reserved.
+ * See COPYING.txt for license details.
+ */
+-->
+<page xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:View/Layout/etc/page_configuration.xsd">
+    <head>
+        <script src="https://cdn.stage.getivy.de/banner.js" src_type="url"/>
+        <script src="https://cdn.stage.getivy.de/button.js" src_type="url"/>
+    </head>
+	<body>
+		<referenceContainer name="minicart.addons">
+            <block class="Magento\Checkout\Block\Cart\Sidebar" name="ivy_mini" template="Esparksinc_IvyPayment::minicart/ivypayment-button.phtml">
+                <arguments>
+					<argument name="banner_data" xsi:type="object">Esparksinc\IvyPayment\ViewModel\Banner</argument>
+				</arguments>
+            </block>
+        </referenceContainer>
+	</body>
+</page>

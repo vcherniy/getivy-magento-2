@@ -1,0 +1,38 @@
+<?php $banner = $block->getBannerData(); ?>
+<script>
+  require([
+    'jquery',
+    'Magento_Customer/js/customer-data',
+    'mage/url',
+    'Magento_Ui/js/model/messageList',
+    ,'domReady!'], function ($, customerData, url, messageList) {
+      jQuery('[data-block="minicart"]').on('contentUpdated', function ()  {
+        setTimeout(function() {
+          
+          var subtotal = customerData.get('cart')._latestValue.subtotalAmount;
+          window.initIvyButton();
+
+          $(".ivy-express-minicart-button").unbind('click');
+          $( ".ivy-express-minicart-button" ).click(function() {
+            $("body").trigger('processStart');
+              var linkUrl = url.build('ivypayment/checkout/index/express/1');
+              
+              $.ajax({
+                  url: linkUrl,
+                  type: 'POST',
+                  success: function(response) {
+                    $("body").trigger('processStop');
+                      window.startIvyCheckout(response.redirectUrl,'popup');
+                  },
+                  error: function(xhr, status, errorThrown) {
+                    $("body").trigger('processStop');
+                      messageList.addErrorMessage({ message: errorThrown });
+                  }
+              });
+          });
+        }, 2000);
+      });
+      
+    }); 
+  
+</script>
