@@ -8,6 +8,8 @@ Magento 2.4.0 and higher
 
 ### Installation
 
+You can install Ivy simply with composer. [Here](https://packagist.org/packages/getivy/magento-2) you can find the package.
+
 ```bash
 composer require getivy/magento-2
 php bin/magento setup:upgrade
