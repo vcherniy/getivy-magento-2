@@ -2,10 +2,14 @@
 
 Here you can find the source code Magento 2 Plugin of [Ivy](https://getivy.de): sustainability-driven payments. A more detailed integration guide is located [here](https://getivy.gitbook.io/integrate-us/).
 
-To install the Plugin please download the Esparksinc_IvyPayment folder you can find in this repo. Then execute the following commands:
+### Compatibility
+
+Magento 2.4.0 and higher
+
+### Installation
 
 ```bash
-composer require getivy/magento-plugin
+composer require getivy/magento-2
 php bin/magento setup:upgrade
 php bin/magento module:enable Esparksinc_IvyPayment
 php bin/magento setup:di:compile
