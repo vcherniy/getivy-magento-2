@@ -1,0 +1,18 @@
+<?xml version="1.0" ?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Store:etc/config.xsd">
+	<default>
+		<payment>
+			<ivy>
+				<active>1</active>
+				<model>Esparksinc\IvyPayment\Model\Payment\Ivy</model>
+				<title>Ivy Payment</title>
+				<order_status>pending</order_status>
+				<can_refund_partial_per_invoice>1</can_refund_partial_per_invoice>
+				<can_refund>1</can_refund>
+				<allowspecific>1</allowspecific>
+				<specificcountry>BE,DK,EE,FI,DE,LV,LT,NL,NO,SE,GB</specificcountry>
+				<mcc>5712</mcc>
+			</ivy>
+		</payment>
+	</default>
+</config>

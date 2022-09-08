@@ -1,0 +1,59 @@
+.checkout-payment-method {
+	.ivy-payment {
+		.payment-method-content {
+			width: 100%;
+		}
+		.ivy-banner{
+			width: 100%;
+		}
+	}
+}
+
+.ivy-payment {
+	display: flex;
+	flex-wrap: wrap !important;
+	flex-direction: row;
+	width: 100% !important;
+	font-size: 13px;
+	border-top: 1px solid #ccc;
+	.ivy-pay-logo {
+		flex: 1 1 25%;
+		justify-content: left;
+		display: flex;
+		padding-top: 22px;
+	}
+	.payment-method-title {
+		border-top: 0px !important;
+	}
+	.ivy-s {
+		height: 20px;
+		vertical-align: middle;
+	}
+}
+.ivy-express-minicart-button{
+	display: inline-block;
+	margin-top: 10px;
+	width: 100% !important;
+}
+.ivy-express-cart-button{
+	width: 100% !important;
+}
+
+@media screen and (max-width: 767px) {
+	.ivy-payment {
+		.ivy-pay-logo {
+			padding-top: 15px;
+		}
+	}
+}
+.catalog-product-view{
+	#product-addtocart-button {
+		margin-bottom: 0px;
+	}
+}
+.ivy-checkout-button {
+	&:hover {
+		border: 0px;
+		color: #fff;
+	}
+}
