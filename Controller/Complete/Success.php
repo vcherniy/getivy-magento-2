@@ -66,7 +66,7 @@ class Success extends \Magento\Framework\App\Action\Action
         $ivyModel->save();
         
         // $this->onePage->saveOrder();
-        // $orderdetails = $this->order->create()->loadByIncrementId($magentoOrderId);
+        $orderdetails = $this->order->create()->loadByIncrementId($magentoOrderId);
         // if ($orderdetails->canInvoice()) {
         //     $invoice = $this->invoiceService->prepareInvoice($orderdetails);
         //     $invoice->setRequestedCaptureCase(\Magento\Sales\Model\Order\Invoice::CAPTURE_ONLINE);
