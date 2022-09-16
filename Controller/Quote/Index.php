@@ -128,7 +128,7 @@ class Index extends \Magento\Framework\App\Action\Action implements CsrfAwareAct
         
         $hash = hash_hmac(
             'sha256',
-            json_encode($data),
+            json_encode($data, JSON_UNESCAPED_SLASHES, JSON_UNESCAPED_UNICODE),
             $this->config->getWebhookSecret());
         header('X-Ivy-Signature: '.$hash);
         return $this->jsonFactory->create()->setData($data);
