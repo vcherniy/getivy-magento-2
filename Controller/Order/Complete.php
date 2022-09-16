@@ -98,7 +98,7 @@ class Complete extends \Magento\Framework\App\Action\Action implements CsrfAware
         
         $hash = hash_hmac(
             'sha256',
-            json_encode($data,JSON_UNESCAPED_SLASHES),
+            json_encode($data, JSON_UNESCAPED_SLASHES, JSON_UNESCAPED_UNICODE),
             $this->config->getWebhookSecret());
         
         header('X-Ivy-Signature: '.$hash);
