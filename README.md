@@ -4,7 +4,8 @@ Here you can find the source code Magento 2 Plugin of [Ivy](https://getivy.de): 
 
 ### Compatibility
 
-Magento 2.4.0 and higher
+Magento 2.3.x
+Magento 2.4.x
 
 ### Installation
 
