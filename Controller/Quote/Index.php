@@ -70,8 +70,11 @@ class Index extends \Magento\Framework\App\Action\Action implements CsrfAwareAct
         $quoteReservedId = $request->getParam('reference');
         $quote = $this->quoteFactory->create()->load($quoteReservedId,'reserved_order_id');
 
-        if($quote->getCustomerIsGuest())
-        $quote->setCustomerEmail($customerData['shopperEmail']);
+        if(!$quote->getCustomerId())
+        {
+            $quote->setCustomerEmail($customerData['shopperEmail']);
+            $quote->setCustomerIsGuest(true);
+        }
 
         if(key_exists('shipping',$customerData))
         {
