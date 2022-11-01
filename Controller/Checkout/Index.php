@@ -76,26 +76,31 @@ class Index extends \Magento\Framework\App\Action\Action
 
         if($express)
         {
+            $phone = ['phone' => true];
             $data = [
                 'express' => true,
                 'referenceId' => $orderId,
                 'category' => $mcc,
                 'price' => $price,
                 'lineItems' => $ivyLineItems,
+                'required' => $phone
             ];
         }
         else
         {
+            $prefill = ["email" => $quote->getCustomerEmail()];
             $data = [
+                'handshake' => true,
                 'referenceId' => $orderId,
                 'category' => $mcc,
                 'price' => $price,
                 'lineItems' => $ivyLineItems,
                 'shippingMethods' =>  $shippingMethods,
                 'billingAddress' => $billingAddress,
+                'prefill' => $prefill,
             ];
         }
-
+        
         $jsonContent = $this->json->serialize($data);
         $client = new Client([
             'base_uri' => $this->config->getApiUrl(),
@@ -114,8 +119,8 @@ class Index extends \Magento\Framework\App\Action\Action
 
         if ($response->getStatusCode() === 200) {
             //Order Place if not express
-            if(!$express)
-            $this->onePage->saveOrder();
+            // if(!$express)
+            // $this->onePage->saveOrder();
             
             // Redirect to Ivy payment
             $arrData = $this->json->unserialize((string)$response->getBody());
