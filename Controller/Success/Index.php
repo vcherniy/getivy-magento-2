@@ -91,37 +91,6 @@ class Index extends \Magento\Framework\App\Action\Action
             $this->onePage->saveOrder();
         }
         $orderdetails = $this->order->create()->loadByIncrementId($magentoOrderId);
-        
-        
-        // if(!$orderdetails->getId())
-        // {
-        //     $billing =[
-        //         'address' =>[
-        //             'firstname'    => $arrData['billingAddress']['firstName'],
-        //             'lastname'     => $arrData['billingAddress']['lastName'],
-        //             'street' => $arrData['billingAddress']['line1'],
-        //             'city' => $arrData['billingAddress']['city'],
-        //             'country_id' => $arrData['billingAddress']['country'],
-        //             'postcode' => $arrData['billingAddress']['zipCode'],
-        //             'telephone' => $arrData['shopper']['phoneNumber']
-        //         ]
-        //     ];
-            
-        //     $quote->getBillingAddress()->addData($billing['address']);
-        //     $shippingAddress = $quote->getShippingAddress();
-        //     $shippingAddress->setTelephone($arrData['shopper']['phoneNumber']);
-        //     $shippingAddress->setCollectShippingRates(true);
-        //     $shippingAddress->save();
-        //     $shippingAddress->setCollectShippingRates(true)
-        //                 ->collectShippingRates()
-        //                 ->setShippingMethod($arrData['shippingMethod']['reference']);
-        //     $quote->setPaymentMethod('ivy');
-        //     $quote->save();
-        //     $quote->getPayment()->importData(['method' => 'ivy']);
-        //     $quote->collectTotals()->save();
-        //     $this->onePage->saveOrder();
-        //     $orderdetails = $this->order->create()->loadByIncrementId($magentoOrderId);
-        // }
 
         if ($orderdetails->canInvoice()) {
             $invoice = $this->invoiceService->prepareInvoice($orderdetails);
