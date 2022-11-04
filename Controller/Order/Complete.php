@@ -56,31 +56,33 @@ class Complete extends \Magento\Framework\App\Action\Action implements CsrfAware
 
         $quoteReservedId = $request->getParam('reference');
         $quote = $this->quoteFactory->create()->load($quoteReservedId,'reserved_order_id');
-
-        $shippingAddress = $quote->getShippingAddress();
-        $telephone = $shippingAddress->getTelephone();
-        $billing =[
-            'address' =>[
-                'firstname'    => $customerData['billingAddress']['firstName'],
-                'lastname'     => $customerData['billingAddress']['lastName'],
-                'street' => $customerData['billingAddress']['line1'],
-                'city' => $customerData['billingAddress']['city'],
-                'country_id' => $customerData['billingAddress']['country'],
-                'postcode' => $customerData['billingAddress']['zipCode'],
-                'telephone' => $telephone
-            ]
-        ];
-
-        $quote->getBillingAddress()->addData($billing['address']);
         
-        $shippingAddress->setCollectShippingRates(true)
-                    ->collectShippingRates()
-                    ->setShippingMethod($customerData['shippingMethod']['reference']);
-        $quote->setPaymentMethod('ivy');
-        $quote->save();
-        $quote->getPayment()->importData(['method' => 'ivy']);
-        $quote->collectTotals()->save();
-        
+        if(!$quote->getBillingAddress()->getFirstname())
+        {
+            $shippingAddress = $quote->getShippingAddress();
+            $telephone = $shippingAddress->getTelephone();
+            $billing =[
+                'address' =>[
+                    'firstname'    => $customerData['billingAddress']['firstName'],
+                    'lastname'     => $customerData['billingAddress']['lastName'],
+                    'street' => $customerData['billingAddress']['line1'],
+                    'city' => $customerData['billingAddress']['city'],
+                    'country_id' => $customerData['billingAddress']['country'],
+                    'postcode' => $customerData['billingAddress']['zipCode'],
+                    'telephone' => $telephone
+                ]
+            ];
+
+            $quote->getBillingAddress()->addData($billing['address']);
+            
+            $shippingAddress->setCollectShippingRates(true)
+                        ->collectShippingRates()
+                        ->setShippingMethod($customerData['shippingMethod']['reference']);
+            $quote->setPaymentMethod('ivy');
+            $quote->save();
+            $quote->getPayment()->importData(['method' => 'ivy']);
+            $quote->collectTotals()->save();
+        }
         
 
         $qouteGrandTotal = $quote->getGrandTotal();
