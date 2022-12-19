@@ -1,15 +1,17 @@
 <?php $_product = $block->getProduct(); ?>
 <?php $banner = $block->getBannerData(); ?>
-
+<?php if($banner->getIsActive()): ?>
 <button 
     class="ivy-checkout-button ivy-product-button" 
     data-cart-value="<?= $_product->getFinalPrice() ?>"
     data-shop-category="<?= $banner->getMcc() ?>"
     data-currency-code="<?= $_product->getStore()->getCurrentCurrencyCode(); ?>"
     data-locale="<?= $banner->getLocale() ?>"
+    data-theme="<?= $banner->getProductTheme() ?>"
+    data-appId="<?= $banner->getAppId() ?>"
     style="visibility: hidden; display:none">
 </button>
-
+<?php endif; ?>
 <script>
 require(['jquery','mage/url','Magento_Ui/js/model/messageList','domReady!'], function ($,url,messageList) {
     $( ".ivy-product-button" ).on('click', function(event) {

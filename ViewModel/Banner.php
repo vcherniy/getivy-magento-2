@@ -41,4 +41,24 @@ class Banner extends \Magento\Framework\DataObject implements \Magento\Framework
     {
         return  $this->config->getLocale();
     }
+
+    public function getProductTheme()
+    {
+        return  $this->config->getProductTheme();
+    }
+
+    public function getCartTheme()
+    {
+        return  $this->config->getCartTheme();
+    }
+
+    public function getIsActive()
+    {
+        return  $this->config->isActive();
+    }
+
+    public function getAppId()
+    {
+        return  $this->config->getAppId();
+    }
 }

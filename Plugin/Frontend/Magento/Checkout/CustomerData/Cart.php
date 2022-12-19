@@ -28,6 +28,8 @@ class Cart
         $currencyCode = $quote->getStore()->getCurrentCurrencyCode();
         $categoryCode = $this->config->getMcc();
         $locale = $this->config->getLocale();
+        $minicartTheme = $this->config->getMinicartTheme();
+        $appId = $this->config->getAppId();
         
         // Add express button if express checkout is enable
         if($this->config->isActive())
@@ -39,6 +41,8 @@ class Cart
             data-shop-category="'.$categoryCode.'"
             data-currency-code="'.$currencyCode.'"
             data-locale="'.$locale.'"
+            data-theme="'.$minicartTheme.'"
+            data-appId="'.$appId.'"
             style="visibility: hidden">
             </button>';
             $result['extra_actions'] = $ivyButton.$result['extra_actions'];

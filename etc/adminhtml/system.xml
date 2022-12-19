@@ -57,6 +57,32 @@
 				<field id="sort_order" type="text" sortOrder="80" showInWebsite="1" showInStore="1" showInDefault="1" translate="label">
 					<label>Sort Order</label>
 				</field>
+				<group id="frontend_settings" translate="label" showInDefault="1" showInWebsite="1" showInStore="1" sortOrder="80">
+					<label>Frontend Settings</label>
+					<fieldset_css>config-advanced</fieldset_css>
+					<depends>
+                        <field id="active">1</field>
+                    </depends>
+					<field id="product_theme" translate="label comment" type="select" sortOrder="5" showInDefault="1" showInWebsite="1" showInStore="1">
+						<source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+						<label>Light theme on Catalog Product Page</label>
+						<comment>Select No for dark theme</comment>
+                	</field>
+					<field id="minicart_theme" translate="label comment" type="select" sortOrder="5" showInDefault="1" showInWebsite="1" showInStore="1">
+						<source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+						<label>Light theme on Mini Cart</label>
+						<comment>Select No for dark theme</comment>
+                	</field>
+					<field id="cart_theme" translate="label comment" type="select" sortOrder="5" showInDefault="1" showInWebsite="1" showInStore="1">
+						<source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+						<label>Light theme on Cart Page</label>
+						<comment>Select No for dark theme</comment>
+                	</field>
+					<field id="product_button" translate="label comment" type="select" sortOrder="5" showInDefault="1" showInWebsite="1" showInStore="1">
+						<source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+						<label>Show button on product page</label>
+                	</field>
+                </group>
 			</group>
 		</section>
 	</system>

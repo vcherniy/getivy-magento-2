@@ -21,6 +21,10 @@ class Config
 
     const IVY_API_URL_LIVE = 'https://api.getivy.de/api/service/';
     const IVY_API_URL_SANDBOX = 'https://api.sand.getivy.de/api/service/';
+
+    const IVY_PRODUCT_THEME = 'payment/ivy/frontend_settings/product_theme';
+    const IVY_CART_THEME = 'payment/ivy/frontend_settings/cart_theme';
+    const IVY_MINICART_THEME = 'payment/ivy/frontend_settings/minicart_theme';
     
 
     /**
@@ -128,6 +132,39 @@ class Config
                 return self::IVY_API_URL_LIVE;
             case 1:
                 return self::IVY_API_URL_SANDBOX;
+        }
+    }
+
+    public function getProductTheme($storeId = null)
+    {
+        $productTheme = $this->getValue(self::IVY_PRODUCT_THEME, $storeId);
+        switch ($productTheme) {
+            case 0:
+                return "dark";
+            case 1:
+                return "light";
+        }
+    }
+
+    public function getCartTheme($storeId = null)
+    {
+        $productTheme = $this->getValue(self::IVY_CART_THEME, $storeId);
+        switch ($productTheme) {
+            case 0:
+                return "dark";
+            case 1:
+                return "light";
+        }
+    }
+
+    public function getMinicartTheme($storeId = null)
+    {
+        $productTheme = $this->getValue(self::IVY_MINICART_THEME, $storeId);
+        switch ($productTheme) {
+            case 0:
+                return "dark";
+            case 1:
+                return "light";
         }
     }
 }
