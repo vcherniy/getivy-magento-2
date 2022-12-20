@@ -94,7 +94,8 @@ class UpdateMerchant implements ObserverInterface
         ];
 
         $response = $client->post('merchant/update', $options);
-        
+        $appId = explode('.', $this->config->getApiKey());
+        $this->configWriter->save('payment/ivy/app_id', $appId[0]);
         return $this;
     }
 }

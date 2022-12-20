@@ -12,6 +12,13 @@
 				<allowspecific>1</allowspecific>
 				<specificcountry>BE,DK,EE,FI,DE,LV,LT,NL,NO,SE,GB</specificcountry>
 				<mcc>5712</mcc>
+				<app_id>0</app_id>
+				<frontend_settings>
+					<product_theme>1</product_theme>
+					<minicart_theme>1</minicart_theme>
+					<cart_theme>1</cart_theme>
+					<product_button>1</product_button>
+				</frontend_settings>
 			</ivy>
 		</payment>
 	</default>

@@ -206,6 +206,8 @@ class Index extends \Magento\Framework\App\Action\Action
     private function getBillingAddress($quote)
     {
         $billingAddress = [
+            'firstName' => $quote->getBillingAddress()->getFirstname(),
+            'LastName' => $quote->getBillingAddress()->getLastname(),
             'line1' => $quote->getBillingAddress()->getStreet()[0],
             'city' => $quote->getBillingAddress()->getCity(),
             'zipCode' => $quote->getBillingAddress()->getPostcode(),
