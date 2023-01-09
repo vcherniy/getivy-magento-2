@@ -172,15 +172,13 @@ class Index extends \Magento\Framework\App\Action\Action
         $total = $quote->getBaseGrandTotal()?$quote->getBaseGrandTotal():0;
         $currency = $quote->getBaseCurrencyCode();
 
-        $price = [
+        return [
             'totalNet' => $totalNet,
             'vat' => $vat,
             'shipping' => $shippingAmount,
             'total' => $total,
             'currency' => $currency,
         ];
-
-        return $price;
     }
 
     private function getShippingMethod($quote): array
@@ -207,7 +205,5 @@ class Index extends \Magento\Framework\App\Action\Action
             'zipCode' => $quote->getBillingAddress()->getPostcode(),
             'country' => $quote->getBillingAddress()->getCountryId(),
         ];
-
-        return $billingAddress;
     }
 }
