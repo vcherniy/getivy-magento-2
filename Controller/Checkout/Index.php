@@ -46,10 +46,9 @@ class Index extends \Magento\Framework\App\Action\Action
     }
     public function execute()
     {
-        $express = 0;
         $express = $this->getRequest()->getParam('express');
         $ivyModel = $this->ivy->create();
-        
+
         $quote = $this->checkoutSession->getQuote();
         if(!$quote->getReservedOrderId())
         {
@@ -61,21 +60,20 @@ class Index extends \Magento\Framework\App\Action\Action
         $orderId = $quote->getReservedOrderId();
 
         //Price
-        $price = $this->getPrice($quote); 
-        
+        $price = $this->getPrice($quote);
+
         // Line Items
         $ivyLineItems = $this->getLineItem($quote);
-        
+
         // Shipping Methods
-        $shippingMethods = $this->getShippingMethod($quote);
+        $shippingMethods = $quote->isVirtual() ? [] : $this->getShippingMethod($quote);
 
         //billingAddress
         $billingAddress = $this->getBillingAddress($quote);
 
         $mcc = $this->config->getMcc();
 
-        if($express)
-        {
+        if($express) {
             $phone = ['phone' => true];
             $data = [
                 'express' => true,
@@ -85,10 +83,8 @@ class Index extends \Magento\Framework\App\Action\Action
                 'lineItems' => $ivyLineItems,
                 'required' => $phone
             ];
-        }
-        else
-        {
-            $prefill = ["email" => $quote->getCustomerEmail()];
+        } else {
+            $prefill = ["email" => $quote->getBillingAddress()->getEmail()];
             $data = [
                 'handshake' => true,
                 'referenceId' => $orderId,
@@ -100,7 +96,7 @@ class Index extends \Magento\Framework\App\Action\Action
                 'prefill' => $prefill,
             ];
         }
-        
+
         $jsonContent = $this->json->serialize($data);
         $client = new Client([
             'base_uri' => $this->config->getApiUrl(),
@@ -121,7 +117,7 @@ class Index extends \Magento\Framework\App\Action\Action
             //Order Place if not express
             // if(!$express)
             // $this->onePage->saveOrder();
-            
+
             // Redirect to Ivy payment
             $arrData = $this->json->unserialize((string)$response->getBody());
 
@@ -163,7 +159,7 @@ class Index extends \Magento\Framework\App\Action\Action
 
             $ivyLineItems[] = $lineItem;
         }
-        
+
         return $ivyLineItems;
     }
 
@@ -182,12 +178,12 @@ class Index extends \Magento\Framework\App\Action\Action
             'shipping' => $shippingAmount,
             'total' => $total,
             'currency' => $currency,
-        ]; 
+        ];
 
         return $price;
     }
 
-    private function getShippingMethod($quote)
+    private function getShippingMethod($quote): array
     {
         $shippingAmount = $quote->getBaseShippingAmount()?$quote->getBaseShippingAmount():0;
         $countryId[] = $quote->getShippingAddress()->getCountryId();
@@ -203,11 +199,9 @@ class Index extends \Magento\Framework\App\Action\Action
         return $shippingMethod;
     }
 
-    private function getBillingAddress($quote)
+    private function getBillingAddress($quote): array
     {
-        $billingAddress = [
-            'firstName' => $quote->getBillingAddress()->getFirstname(),
-            'LastName' => $quote->getBillingAddress()->getLastname(),
+        return [
             'line1' => $quote->getBillingAddress()->getStreet()[0],
             'city' => $quote->getBillingAddress()->getCity(),
             'zipCode' => $quote->getBillingAddress()->getPostcode(),
