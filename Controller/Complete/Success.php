@@ -7,12 +7,21 @@ declare(strict_types=1);
 
 namespace Esparksinc\IvyPayment\Controller\Complete;
 
-use GuzzleHttp\Client;
+use Esparksinc\IvyPayment\Model\Config;
+use Esparksinc\IvyPayment\Model\IvyFactory;
+use Magento\Checkout\Model\Session;
+use Magento\Checkout\Model\Type\Onepage;
+use Magento\Framework\App\Action\Action;
+use Magento\Framework\App\Action\Context;
+use Magento\Framework\Controller\Result\RedirectFactory;
+use Magento\Framework\Serialize\Serializer\Json;
+use Magento\Quote\Model\QuoteRepository;
+use Magento\Sales\Model\OrderFactory;
 use Magento\Sales\Model\Service\InvoiceService;
 use Magento\Framework\DB\Transaction;
 use Magento\Sales\Model\Order\Email\Sender\InvoiceSender;
 
-class Success extends \Magento\Framework\App\Action\Action
+class Success extends Action
 {
     protected $resultRedirect;
     protected $order;
@@ -26,20 +35,34 @@ class Success extends \Magento\Framework\App\Action\Action
     protected $checkoutSession;
     protected $quoteRepository;
 
+    /**
+     * @param Context $context
+     * @param RedirectFactory $resultRedirectFactory
+     * @param OrderFactory $order
+     * @param IvyFactory $ivy
+     * @param InvoiceService $invoiceService
+     * @param InvoiceSender $invoiceSender
+     * @param Transaction $transaction
+     * @param Json $json
+     * @param Config $config
+     * @param Onepage $onePage
+     * @param Session $checkoutSession
+     * @param QuoteRepository $quoteRepository
+     */
     public function __construct(
-        \Magento\Framework\App\Action\Context $context,
-        \Magento\Framework\Controller\Result\RedirectFactory $resultRedirectFactory,
-        \Magento\Sales\Model\OrderFactory $order,
-        \Esparksinc\IvyPayment\Model\IvyFactory $ivy,
-        InvoiceService $invoiceService,
-        InvoiceSender $invoiceSender,
-        Transaction $transaction,
-        \Magento\Framework\Serialize\Serializer\Json $json,
-        \Esparksinc\IvyPayment\Model\Config $config,
-        \Magento\Checkout\Model\Type\Onepage $onePage,
-        \Magento\Checkout\Model\Session $checkoutSession,
-        \Magento\Quote\Model\QuoteRepository $quoteRepository
-        ){
+        Context         $context,
+        RedirectFactory $resultRedirectFactory,
+        OrderFactory    $order,
+        IvyFactory      $ivy,
+        InvoiceService  $invoiceService,
+        InvoiceSender   $invoiceSender,
+        Transaction     $transaction,
+        Json            $json,
+        Config          $config,
+        Onepage         $onePage,
+        Session         $checkoutSession,
+        QuoteRepository $quoteRepository
+    ) {
         $this->resultRedirectFactory = $resultRedirectFactory;
         $this->order = $order;
         $this->ivy = $ivy;
@@ -58,13 +81,13 @@ class Success extends \Magento\Framework\App\Action\Action
         // Get success params from Ivy
         $magentoOrderId = $this->getRequest()->getParam('reference');
         $ivyOrderId = $this->getRequest()->getParam('order-id');
-        
+
         // Save info in db
         $ivyModel = $this->ivy->create();
         $ivyModel->load($magentoOrderId,'magento_order_id');
         $ivyModel->setIvyOrderId($ivyOrderId);
         $ivyModel->save();
-        
+
         // $this->onePage->saveOrder();
         $orderdetails = $this->order->create()->loadByIncrementId($magentoOrderId);
         // if ($orderdetails->canInvoice()) {
@@ -80,7 +103,7 @@ class Success extends \Magento\Framework\App\Action\Action
         //     );
         //     $transactionSave->save();
         //     $this->invoiceSender->send($invoice);
-            
+
         //     $orderdetails->save();
         // }
 
@@ -113,7 +136,7 @@ class Success extends \Magento\Framework\App\Action\Action
                 ->setLastRealOrderId($orderdetails->getIncrementId())
                 ->setLastOrderStatus($orderdetails->getStatus());
         }
-        
+
         $resultRedirect = $this->resultRedirectFactory->create();
         $resultRedirect->setPath('checkout/onepage/success', ['_secure' => true]);
         return $resultRedirect;

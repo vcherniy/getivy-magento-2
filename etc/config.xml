@@ -10,6 +10,7 @@
 				<can_refund_partial_per_invoice>1</can_refund_partial_per_invoice>
 				<can_refund>1</can_refund>
 				<allowspecific>1</allowspecific>
+				<debug>0</debug>
 				<specificcountry>BE,DK,EE,FI,DE,LV,LT,NL,NO,SE,GB</specificcountry>
 				<mcc>5712</mcc>
 				<app_id>0</app_id>

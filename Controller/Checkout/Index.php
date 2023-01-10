@@ -7,9 +7,21 @@ declare(strict_types=1);
 
 namespace Esparksinc\IvyPayment\Controller\Checkout;
 
+use Esparksinc\IvyPayment\Model\Config;
+use Esparksinc\IvyPayment\Model\Debug;
+use Esparksinc\IvyPayment\Model\IvyFactory;
 use GuzzleHttp\Client;
+use Magento\Checkout\Model\Session;
+use Magento\Checkout\Model\Type\Onepage;
+use Magento\Framework\App\Action\Action;
+use Magento\Framework\App\Action\Context;
+use Magento\Framework\Controller\Result\JsonFactory;
+use Magento\Framework\Controller\Result\RedirectFactory;
+use Magento\Framework\Serialize\Serializer\Json;
+use Magento\Quote\Api\CartRepositoryInterface;
+use Magento\Quote\Model\Cart\CartTotalRepository;
 
-class Index extends \Magento\Framework\App\Action\Action
+class Index extends Action
 {
     protected $resultRedirectFactory;
     protected $jsonFactory;
@@ -20,19 +32,34 @@ class Index extends \Magento\Framework\App\Action\Action
     protected $onePage;
     protected $ivy;
     protected $cartTotalRepository;
+    private Debug $debug;
 
+    /**
+     * @param Context $context
+     * @param JsonFactory $jsonFactory
+     * @param RedirectFactory $resultRedirectFactory
+     * @param Session $checkoutSession
+     * @param CartRepositoryInterface $quoteRepository
+     * @param Json $json
+     * @param Config $config
+     * @param Onepage $onePage
+     * @param IvyFactory $ivy
+     * @param CartTotalRepository $cartTotalRepository
+     * @param Debug $debug
+     */
     public function __construct(
-        \Magento\Framework\App\Action\Context $context,
-        \Magento\Framework\Controller\Result\JsonFactory $jsonFactory,
-        \Magento\Framework\Controller\Result\RedirectFactory $resultRedirectFactory,
-        \Magento\Checkout\Model\Session $checkoutSession,
-        \Magento\Quote\Api\CartRepositoryInterface $quoteRepository,
-        \Magento\Framework\Serialize\Serializer\Json $json,
-        \Esparksinc\IvyPayment\Model\Config $config,
-        \Magento\Checkout\Model\Type\Onepage $onePage,
-        \Esparksinc\IvyPayment\Model\IvyFactory $ivy,
-        \Magento\Quote\Model\Cart\CartTotalRepository $cartTotalRepository
-        ){
+        Context                 $context,
+        JsonFactory             $jsonFactory,
+        RedirectFactory         $resultRedirectFactory,
+        Session                 $checkoutSession,
+        CartRepositoryInterface $quoteRepository,
+        Json                    $json,
+        Config                  $config,
+        Onepage                 $onePage,
+        IvyFactory              $ivy,
+        CartTotalRepository     $cartTotalRepository,
+        Debug                   $debug
+    ) {
         $this->jsonFactory = $jsonFactory;
         $this->resultRedirectFactory = $resultRedirectFactory;
         $this->checkoutSession = $checkoutSession;
@@ -42,6 +69,7 @@ class Index extends \Magento\Framework\App\Action\Action
         $this->onePage = $onePage;
         $this->ivy = $ivy;
         $this->cartTotalRepository = $cartTotalRepository;
+        $this->debug = $debug;
         parent::__construct($context);
     }
     public function execute()
@@ -112,6 +140,11 @@ class Index extends \Magento\Framework\App\Action\Action
         ];
 
         $response = $client->post('checkout/session/create', $options);
+
+        $this->debug->log(
+            '[IvyPayment] Get Checkout Status Code:',
+            [$response->getStatusCode()]
+        );
 
         if ($response->getStatusCode() === 200) {
             //Order Place if not express
