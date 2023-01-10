@@ -7,12 +7,23 @@ declare(strict_types=1);
 
 namespace Esparksinc\IvyPayment\Controller\Success;
 
+use Esparksinc\IvyPayment\Model\Config;
+use Esparksinc\IvyPayment\Model\Debug;
+use Esparksinc\IvyPayment\Model\IvyFactory;
 use GuzzleHttp\Client;
+use Magento\Checkout\Model\Session;
+use Magento\Checkout\Model\Type\Onepage;
+use Magento\Framework\App\Action\Action;
+use Magento\Framework\App\Action\Context;
+use Magento\Framework\Controller\Result\RedirectFactory;
+use Magento\Framework\Serialize\Serializer\Json;
+use Magento\Sales\Model\Order\Invoice;
+use Magento\Sales\Model\OrderFactory;
 use Magento\Sales\Model\Service\InvoiceService;
 use Magento\Framework\DB\Transaction;
 use Magento\Sales\Model\Order\Email\Sender\InvoiceSender;
 
-class Index extends \Magento\Framework\App\Action\Action
+class Index extends Action
 {
     protected $resultRedirect;
     protected $order;
@@ -24,20 +35,36 @@ class Index extends \Magento\Framework\App\Action\Action
     protected $json;
     protected $onePage;
     protected $checkoutSession;
+    private Debug $debug;
 
+    /**
+     * @param Context $context
+     * @param RedirectFactory $resultRedirectFactory
+     * @param OrderFactory $order
+     * @param IvyFactory $ivy
+     * @param InvoiceService $invoiceService
+     * @param InvoiceSender $invoiceSender
+     * @param Transaction $transaction
+     * @param Json $json
+     * @param Config $config
+     * @param Onepage $onePage
+     * @param Session $checkoutSession
+     * @param Debug $debug
+     */
     public function __construct(
-        \Magento\Framework\App\Action\Context $context,
-        \Magento\Framework\Controller\Result\RedirectFactory $resultRedirectFactory,
-        \Magento\Sales\Model\OrderFactory $order,
-        \Esparksinc\IvyPayment\Model\IvyFactory $ivy,
-        InvoiceService $invoiceService,
-        InvoiceSender $invoiceSender,
-        Transaction $transaction,
-        \Magento\Framework\Serialize\Serializer\Json $json,
-        \Esparksinc\IvyPayment\Model\Config $config,
-        \Magento\Checkout\Model\Type\Onepage $onePage,
-        \Magento\Checkout\Model\Session $checkoutSession
-        ){
+        Context         $context,
+        RedirectFactory $resultRedirectFactory,
+        OrderFactory    $order,
+        IvyFactory      $ivy,
+        InvoiceService  $invoiceService,
+        InvoiceSender   $invoiceSender,
+        Transaction     $transaction,
+        Json            $json,
+        Config          $config,
+        Onepage         $onePage,
+        Session         $checkoutSession,
+        Debug           $debug
+    ) {
         $this->resultRedirectFactory = $resultRedirectFactory;
         $this->order = $order;
         $this->ivy = $ivy;
@@ -48,6 +75,7 @@ class Index extends \Magento\Framework\App\Action\Action
         $this->config = $config;
         $this->onePage = $onePage;
         $this->checkoutSession = $checkoutSession;
+        $this->debug = $debug;
         parent::__construct($context);
     }
     public function execute()
@@ -78,7 +106,7 @@ class Index extends \Magento\Framework\App\Action\Action
         if ($response->getStatusCode() === 200) {
             $arrData = $this->json->unserialize((string)$response->getBody());
         }
-        
+
         // Save info in db
         $ivyModel = $this->ivy->create();
         $ivyModel->load($magentoOrderId,'magento_order_id');
@@ -94,7 +122,7 @@ class Index extends \Magento\Framework\App\Action\Action
 
         if ($orderdetails->canInvoice()) {
             $invoice = $this->invoiceService->prepareInvoice($orderdetails);
-            $invoice->setRequestedCaptureCase(\Magento\Sales\Model\Order\Invoice::CAPTURE_ONLINE);
+            $invoice->setRequestedCaptureCase(Invoice::CAPTURE_ONLINE);
             $invoice->register();
             $invoice->getOrder()->setIsInProcess(true);
             $invoice->save();
@@ -105,7 +133,7 @@ class Index extends \Magento\Framework\App\Action\Action
             );
             $transactionSave->save();
             $this->invoiceSender->send($invoice);
-            
+
             $orderdetails->save();
         }
 
@@ -114,6 +142,11 @@ class Index extends \Magento\Framework\App\Action\Action
             $invoice->setTransactionId($ivyOrderId);
             $invoice->save();
         }
+
+        $this->debug->log(
+            '[IvyPayment] Get Quote orderDetails:',
+            $orderdetails->getData()
+        );
 
         if($orderdetails->getState() === 'processing')
         {

@@ -7,9 +7,21 @@ declare(strict_types=1);
 
 namespace Esparksinc\IvyPayment\Controller\Checkout;
 
+use Esparksinc\IvyPayment\Model\Config;
+use Esparksinc\IvyPayment\Model\Debug;
+use Esparksinc\IvyPayment\Model\IvyFactory;
 use GuzzleHttp\Client;
+use Magento\Checkout\Model\Session;
+use Magento\Checkout\Model\Type\Onepage;
+use Magento\Framework\App\Action\Action;
+use Magento\Framework\App\Action\Context;
+use Magento\Framework\Controller\Result\JsonFactory;
+use Magento\Framework\Controller\Result\RedirectFactory;
+use Magento\Framework\Serialize\Serializer\Json;
+use Magento\Quote\Api\CartRepositoryInterface;
+use Magento\Quote\Model\Cart\CartTotalRepository;
 
-class Index extends \Magento\Framework\App\Action\Action
+class Index extends Action
 {
     protected $resultRedirectFactory;
     protected $jsonFactory;
@@ -20,19 +32,34 @@ class Index extends \Magento\Framework\App\Action\Action
     protected $onePage;
     protected $ivy;
     protected $cartTotalRepository;
+    private Debug $debug;
 
+    /**
+     * @param Context $context
+     * @param JsonFactory $jsonFactory
+     * @param RedirectFactory $resultRedirectFactory
+     * @param Session $checkoutSession
+     * @param CartRepositoryInterface $quoteRepository
+     * @param Json $json
+     * @param Config $config
+     * @param Onepage $onePage
+     * @param IvyFactory $ivy
+     * @param CartTotalRepository $cartTotalRepository
+     * @param Debug $debug
+     */
     public function __construct(
-        \Magento\Framework\App\Action\Context $context,
-        \Magento\Framework\Controller\Result\JsonFactory $jsonFactory,
-        \Magento\Framework\Controller\Result\RedirectFactory $resultRedirectFactory,
-        \Magento\Checkout\Model\Session $checkoutSession,
-        \Magento\Quote\Api\CartRepositoryInterface $quoteRepository,
-        \Magento\Framework\Serialize\Serializer\Json $json,
-        \Esparksinc\IvyPayment\Model\Config $config,
-        \Magento\Checkout\Model\Type\Onepage $onePage,
-        \Esparksinc\IvyPayment\Model\IvyFactory $ivy,
-        \Magento\Quote\Model\Cart\CartTotalRepository $cartTotalRepository
-        ){
+        Context                 $context,
+        JsonFactory             $jsonFactory,
+        RedirectFactory         $resultRedirectFactory,
+        Session                 $checkoutSession,
+        CartRepositoryInterface $quoteRepository,
+        Json                    $json,
+        Config                  $config,
+        Onepage                 $onePage,
+        IvyFactory              $ivy,
+        CartTotalRepository     $cartTotalRepository,
+        Debug                   $debug
+    ) {
         $this->jsonFactory = $jsonFactory;
         $this->resultRedirectFactory = $resultRedirectFactory;
         $this->checkoutSession = $checkoutSession;
@@ -42,14 +69,14 @@ class Index extends \Magento\Framework\App\Action\Action
         $this->onePage = $onePage;
         $this->ivy = $ivy;
         $this->cartTotalRepository = $cartTotalRepository;
+        $this->debug = $debug;
         parent::__construct($context);
     }
     public function execute()
     {
-        $express = 0;
         $express = $this->getRequest()->getParam('express');
         $ivyModel = $this->ivy->create();
-        
+
         $quote = $this->checkoutSession->getQuote();
         if(!$quote->getReservedOrderId())
         {
@@ -61,21 +88,20 @@ class Index extends \Magento\Framework\App\Action\Action
         $orderId = $quote->getReservedOrderId();
 
         //Price
-        $price = $this->getPrice($quote); 
-        
+        $price = $this->getPrice($quote);
+
         // Line Items
         $ivyLineItems = $this->getLineItem($quote);
-        
+
         // Shipping Methods
-        $shippingMethods = $this->getShippingMethod($quote);
+        $shippingMethods = $quote->isVirtual() ? [] : $this->getShippingMethod($quote);
 
         //billingAddress
         $billingAddress = $this->getBillingAddress($quote);
 
         $mcc = $this->config->getMcc();
 
-        if($express)
-        {
+        if($express) {
             $phone = ['phone' => true];
             $data = [
                 'express' => true,
@@ -85,10 +111,8 @@ class Index extends \Magento\Framework\App\Action\Action
                 'lineItems' => $ivyLineItems,
                 'required' => $phone
             ];
-        }
-        else
-        {
-            $prefill = ["email" => $quote->getCustomerEmail()];
+        } else {
+            $prefill = ["email" => $quote->getBillingAddress()->getEmail()];
             $data = [
                 'handshake' => true,
                 'referenceId' => $orderId,
@@ -100,7 +124,7 @@ class Index extends \Magento\Framework\App\Action\Action
                 'prefill' => $prefill,
             ];
         }
-        
+
         $jsonContent = $this->json->serialize($data);
         $client = new Client([
             'base_uri' => $this->config->getApiUrl(),
@@ -117,11 +141,16 @@ class Index extends \Magento\Framework\App\Action\Action
 
         $response = $client->post('checkout/session/create', $options);
 
+        $this->debug->log(
+            '[IvyPayment] Get Checkout Status Code:',
+            [$response->getStatusCode()]
+        );
+
         if ($response->getStatusCode() === 200) {
             //Order Place if not express
             // if(!$express)
             // $this->onePage->saveOrder();
-            
+
             // Redirect to Ivy payment
             $arrData = $this->json->unserialize((string)$response->getBody());
 
@@ -163,7 +192,7 @@ class Index extends \Magento\Framework\App\Action\Action
 
             $ivyLineItems[] = $lineItem;
         }
-        
+
         return $ivyLineItems;
     }
 
@@ -176,18 +205,16 @@ class Index extends \Magento\Framework\App\Action\Action
         $total = $quote->getBaseGrandTotal()?$quote->getBaseGrandTotal():0;
         $currency = $quote->getBaseCurrencyCode();
 
-        $price = [
+        return [
             'totalNet' => $totalNet,
             'vat' => $vat,
             'shipping' => $shippingAmount,
             'total' => $total,
             'currency' => $currency,
-        ]; 
-
-        return $price;
+        ];
     }
 
-    private function getShippingMethod($quote)
+    private function getShippingMethod($quote): array
     {
         $shippingAmount = $quote->getBaseShippingAmount()?$quote->getBaseShippingAmount():0;
         $countryId[] = $quote->getShippingAddress()->getCountryId();
@@ -203,9 +230,9 @@ class Index extends \Magento\Framework\App\Action\Action
         return $shippingMethod;
     }
 
-    private function getBillingAddress($quote)
+    private function getBillingAddress($quote): array
     {
-        $billingAddress = [
+        return [
             'firstName' => $quote->getBillingAddress()->getFirstname(),
             'LastName' => $quote->getBillingAddress()->getLastname(),
             'line1' => $quote->getBillingAddress()->getStreet()[0],
@@ -213,7 +240,5 @@ class Index extends \Magento\Framework\App\Action\Action
             'zipCode' => $quote->getBillingAddress()->getPostcode(),
             'country' => $quote->getBillingAddress()->getCountryId(),
         ];
-
-        return $billingAddress;
     }
 }

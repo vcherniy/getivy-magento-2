@@ -7,11 +7,23 @@ declare(strict_types=1);
 
 namespace Esparksinc\IvyPayment\Controller\Order;
 
+use Esparksinc\IvyPayment\Model\Config;
+use Esparksinc\IvyPayment\Model\Debug;
+use Magento\Directory\Model\RegionFactory;
+use Magento\Framework\App\Action\Action;
+use Magento\Framework\App\Action\Context;
+use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\App\CsrfAwareActionInterface;
 use Magento\Framework\App\RequestInterface;
 use Magento\Framework\App\Request\InvalidRequestException;
+use Magento\Framework\Controller\Result\JsonFactory;
+use Magento\Framework\Serialize\Serializer\Json;
+use Magento\Quote\Api\CartManagementInterface;
+use Magento\Quote\Model\Cart\CartTotalRepository;
+use Magento\Quote\Model\QuoteFactory;
+use Magento\Store\Model\StoreManagerInterface;
 
-class Complete extends \Magento\Framework\App\Action\Action implements CsrfAwareActionInterface
+class Complete extends Action implements CsrfAwareActionInterface
 {
     protected $config;
     protected $json;
@@ -22,19 +34,34 @@ class Complete extends \Magento\Framework\App\Action\Action implements CsrfAware
     protected $cartTotalRepository;
     protected $quoteManagement;
     protected $storeManager;
+    private Debug $debug;
 
+    /**
+     * @param Context $context
+     * @param Config $config
+     * @param Json $json
+     * @param JsonFactory $jsonFactory
+     * @param ScopeConfigInterface $scopeConfig
+     * @param QuoteFactory $quoteFactory
+     * @param RegionFactory $regionFactory
+     * @param CartTotalRepository $cartTotalRepository
+     * @param CartManagementInterface $quoteManagement
+     * @param StoreManagerInterface $storeManager
+     * @param Debug $debug
+     */
     public function __construct(
-        \Magento\Framework\App\Action\Context $context,
-        \Esparksinc\IvyPayment\Model\Config $config,
-        \Magento\Framework\Serialize\Serializer\Json $json,
-        \Magento\Framework\Controller\Result\JsonFactory $jsonFactory,
-        \Magento\Framework\App\Config\ScopeConfigInterface $scopeConfig,
-        \Magento\Quote\Model\QuoteFactory $quoteFactory,
-        \Magento\Directory\Model\RegionFactory $regionFactory,
-        \Magento\Quote\Model\Cart\CartTotalRepository $cartTotalRepository,
-        \Magento\Quote\Api\CartManagementInterface $quoteManagement,
-        \Magento\Store\Model\StoreManagerInterface $storeManager
-        ){
+        Context                 $context,
+        Config                  $config,
+        Json                    $json,
+        JsonFactory             $jsonFactory,
+        ScopeConfigInterface    $scopeConfig,
+        QuoteFactory            $quoteFactory,
+        RegionFactory           $regionFactory,
+        CartTotalRepository     $cartTotalRepository,
+        CartManagementInterface $quoteManagement,
+        StoreManagerInterface   $storeManager,
+        Debug                   $debug
+    ) {
         $this->config = $config;
         $this->json = $json;
         $this->jsonFactory = $jsonFactory;
@@ -44,19 +71,28 @@ class Complete extends \Magento\Framework\App\Action\Action implements CsrfAware
         $this->cartTotalRepository = $cartTotalRepository;
         $this->quoteManagement = $quoteManagement;
         $this->storeManager = $storeManager;
+        $this->debug = $debug;
         parent::__construct($context);
     }
     public function execute()
     {
         $request = $this->getRequest();
         $customerData = $this->json->unserialize((string)$request->getContent());
-        
+        $this->debug->log(
+            '[IvyPayment] Get Complete customerData:',
+            $customerData
+        );
         $frontendUrl = $this->storeManager->getStore()->getBaseUrl();
         $redirectUrl = $frontendUrl.'ivypayment/complete/success';
 
         $quoteReservedId = $request->getParam('reference');
         $quote = $this->quoteFactory->create()->load($quoteReservedId,'reserved_order_id');
-        
+
+        $this->debug->log(
+            '[IvyPayment] Get Complete quote getBillingAddress:',
+            [$quote->getBillingAddress()->getData()]
+        );
+
         if(!$quote->getBillingAddress()->getFirstname())
         {
             $shippingAddress = $quote->getShippingAddress();
@@ -72,37 +108,45 @@ class Complete extends \Magento\Framework\App\Action\Action implements CsrfAware
                     'telephone' => $telephone
                 ]
             ];
-
             $quote->getBillingAddress()->addData($billing['address']);
-            
+
             $shippingAddress->setCollectShippingRates(true)
-                        ->collectShippingRates()
-                        ->setShippingMethod($customerData['shippingMethod']['reference']);
+                ->collectShippingRates()
+                ->setShippingMethod($customerData['shippingMethod']['reference']);
             $quote->setPaymentMethod('ivy');
             $quote->save();
             $quote->getPayment()->importData(['method' => 'ivy']);
             $quote->collectTotals()->save();
+        } else {
+            $quote->setCustomerFirstname($quote->getBillingAddress()->getFirstname());
+            $quote->setCustomerLastname($quote->getBillingAddress()->getLastname());
+            $quote->save();
         }
-        
+
 
         $qouteGrandTotal = $quote->getGrandTotal();
         $ivyTotal = $customerData['price']['total'];
-        
+
         if($qouteGrandTotal != $ivyTotal)
         {
             return http_response_code(400);
         }
-        
+
+        $this->debug->log(
+            '[IvyPayment] Get Complete quote:',
+            $quote->getData()
+        );
+
         $this->quoteManagement->submit($quote);
         $data = [
             'redirectUrl' => $redirectUrl
         ];
-        
+
         $hash = hash_hmac(
             'sha256',
             json_encode($data, JSON_UNESCAPED_SLASHES, JSON_UNESCAPED_UNICODE),
             $this->config->getWebhookSecret());
-        
+
         header('X-Ivy-Signature: '.$hash);
         return $this->jsonFactory->create()->setData($data);
     }
@@ -111,7 +155,7 @@ class Complete extends \Magento\Framework\App\Action\Action implements CsrfAware
     {
         return null;
     }
-        
+
     public function validateForCsrf(RequestInterface $request): ?bool
     {
         if($this->isValidRequest($request))

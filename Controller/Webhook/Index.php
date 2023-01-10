@@ -7,14 +7,23 @@ declare(strict_types=1);
 
 namespace Esparksinc\IvyPayment\Controller\Webhook;
 
+use Esparksinc\IvyPayment\Model\Config;
+use Esparksinc\IvyPayment\Model\Debug;
+use Magento\Framework\App\Action\Action;
+use Magento\Framework\App\Action\Context;
 use Magento\Framework\App\CsrfAwareActionInterface;
 use Magento\Framework\App\RequestInterface;
 use Magento\Framework\App\Request\InvalidRequestException;
+use Magento\Framework\Serialize\Serializer\Json;
+use Magento\Sales\Api\OrderManagementInterface;
+use Magento\Sales\Api\RefundInvoiceInterface;
+use Magento\Sales\Model\Order\Invoice;
+use Magento\Sales\Model\OrderFactory;
 use Magento\Sales\Model\Service\InvoiceService;
 use Magento\Framework\DB\Transaction;
 use Magento\Sales\Model\Order\Email\Sender\InvoiceSender;
 
-class Index extends \Magento\Framework\App\Action\Action implements CsrfAwareActionInterface
+class Index extends Action implements CsrfAwareActionInterface
 {
     protected $config;
     protected $order;
@@ -24,18 +33,32 @@ class Index extends \Magento\Framework\App\Action\Action implements CsrfAwareAct
     protected $invoiceService;
     protected $transaction;
     protected $invoiceSender;
+    private Debug $debug;
 
+    /**
+     * @param Context $context
+     * @param OrderFactory $order
+     * @param Config $config
+     * @param Json $json
+     * @param RefundInvoiceInterface $refund
+     * @param OrderManagementInterface $orderManagement
+     * @param InvoiceService $invoiceService
+     * @param InvoiceSender $invoiceSender
+     * @param Transaction $transaction
+     * @param Debug $debug
+     */
     public function __construct(
-        \Magento\Framework\App\Action\Context $context,
-        \Magento\Sales\Model\OrderFactory $order,
-        \Esparksinc\IvyPayment\Model\Config $config,
-        \Magento\Framework\Serialize\Serializer\Json $json,
-        \Magento\Sales\Api\RefundInvoiceInterface $refund,
-        \Magento\Sales\Api\OrderManagementInterface $orderManagement,
-        InvoiceService $invoiceService,
-        InvoiceSender $invoiceSender,
-        Transaction $transaction
-        ){
+        Context                  $context,
+        OrderFactory             $order,
+        Config                   $config,
+        Json                     $json,
+        RefundInvoiceInterface   $refund,
+        OrderManagementInterface $orderManagement,
+        InvoiceService           $invoiceService,
+        InvoiceSender            $invoiceSender,
+        Transaction              $transaction,
+        Debug                    $debug
+    ) {
         $this->config = $config;
         $this->order = $order;
         $this->json = $json;
@@ -44,6 +67,7 @@ class Index extends \Magento\Framework\App\Action\Action implements CsrfAwareAct
         $this->invoiceService = $invoiceService;
         $this->transaction = $transaction;
         $this->invoiceSender = $invoiceSender;
+        $this->debug = $debug;
         parent::__construct($context);
     }
     public function execute()
@@ -60,6 +84,11 @@ class Index extends \Magento\Framework\App\Action\Action implements CsrfAwareAct
         $magentoOrderId = $arrData['payload']['referenceId'];
         $orderdetails = $this->order->create()->loadByIncrementId($magentoOrderId);
         $orderId = $orderdetails->getId();
+
+        $this->debug->log(
+            '[IvyPayment] Get Webhook Order Details:',
+            $orderdetails
+        );
 
         if($arrData['type'] === 'order_updated' || $arrData['type'] === 'order_created')
         {
@@ -87,7 +116,7 @@ class Index extends \Magento\Framework\App\Action\Action implements CsrfAwareAct
                     $this->createInvoice($arrData);
                 }
                 else{
-                    $this->setOrderStatus($arrData,'processing');   
+                    $this->setOrderStatus($arrData,'processing');
                 }
             }
             elseif($arrData['payload']['status'] === 'processing')
@@ -103,9 +132,9 @@ class Index extends \Magento\Framework\App\Action\Action implements CsrfAwareAct
     {
         return null;
     }
-        
+
     public function validateForCsrf(RequestInterface $request): ?bool
-    {   
+    {
         if($this->isValidRequest($request))
         {
             return true;
@@ -144,7 +173,7 @@ class Index extends \Magento\Framework\App\Action\Action implements CsrfAwareAct
     {
         $magentoOrderId = $arrData['payload']['referenceId'];
         $orderdetails = $this->order->create()->loadByIncrementId($magentoOrderId);
-        
+
         if($orderdetails->getState() === 'processing')
         {
             $orderdetails->setStatus($status);
@@ -160,7 +189,7 @@ class Index extends \Magento\Framework\App\Action\Action implements CsrfAwareAct
 
         if ($orderdetails->canInvoice()) {
             $invoice = $this->invoiceService->prepareInvoice($orderdetails);
-            $invoice->setRequestedCaptureCase(\Magento\Sales\Model\Order\Invoice::CAPTURE_ONLINE);
+            $invoice->setRequestedCaptureCase(Invoice::CAPTURE_ONLINE);
             $invoice->register();
             $invoice->getOrder()->setIsInProcess(true);
             $invoice->save();
@@ -171,7 +200,7 @@ class Index extends \Magento\Framework\App\Action\Action implements CsrfAwareAct
             );
             $transactionSave->save();
             $this->invoiceSender->send($invoice);
-            
+
             $orderdetails->save();
         }
 
