@@ -109,6 +109,8 @@ class Complete extends Action implements CsrfAwareActionInterface
                 ]
             ];
             $quote->getBillingAddress()->addData($billing['address']);
+            $quote->setCustomerFirstname($quote->getBillingAddress()->getFirstname());
+            $quote->setCustomerLastname($quote->getBillingAddress()->getLastname());
 
             $shippingAddress->setCollectShippingRates(true)
                 ->collectShippingRates()
