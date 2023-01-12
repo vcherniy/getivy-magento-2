@@ -21,6 +21,7 @@ use Magento\Framework\Serialize\Serializer\Json;
 use Magento\Quote\Api\CartManagementInterface;
 use Magento\Quote\Model\Cart\CartTotalRepository;
 use Magento\Quote\Model\QuoteFactory;
+use Magento\Quote\Model\QuoteRepository;
 use Magento\Store\Model\StoreManagerInterface;
 
 class Complete extends Action implements CsrfAwareActionInterface
@@ -30,6 +31,7 @@ class Complete extends Action implements CsrfAwareActionInterface
     protected $jsonFactory;
     protected $scopeConfig;
     protected $quoteFactory;
+    protected $quoteRepository;
     protected $regionFactory;
     protected $cartTotalRepository;
     protected $quoteManagement;
@@ -43,6 +45,7 @@ class Complete extends Action implements CsrfAwareActionInterface
      * @param JsonFactory $jsonFactory
      * @param ScopeConfigInterface $scopeConfig
      * @param QuoteFactory $quoteFactory
+     * @param QuoteRepository $quoteRepository
      * @param RegionFactory $regionFactory
      * @param CartTotalRepository $cartTotalRepository
      * @param CartManagementInterface $quoteManagement
@@ -56,6 +59,7 @@ class Complete extends Action implements CsrfAwareActionInterface
         JsonFactory             $jsonFactory,
         ScopeConfigInterface    $scopeConfig,
         QuoteFactory            $quoteFactory,
+        QuoteRepository         $quoteRepository,
         RegionFactory           $regionFactory,
         CartTotalRepository     $cartTotalRepository,
         CartManagementInterface $quoteManagement,
@@ -67,6 +71,7 @@ class Complete extends Action implements CsrfAwareActionInterface
         $this->jsonFactory = $jsonFactory;
         $this->scopeConfig = $scopeConfig;
         $this->quoteFactory = $quoteFactory;
+        $this->quoteRepository = $quoteRepository;
         $this->regionFactory = $regionFactory;
         $this->cartTotalRepository = $cartTotalRepository;
         $this->quoteManagement = $quoteManagement;
@@ -87,6 +92,7 @@ class Complete extends Action implements CsrfAwareActionInterface
 
         $quoteReservedId = $request->getParam('reference');
         $quote = $this->quoteFactory->create()->load($quoteReservedId,'reserved_order_id');
+        $quote = $this->quoteRepository->get($quote->getId());
 
         $this->debug->log(
             '[IvyPayment] Get Complete quote getBillingAddress:',
