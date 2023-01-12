@@ -20,6 +20,7 @@ use Magento\Framework\Controller\Result\JsonFactory;
 use Magento\Framework\Serialize\Serializer\Json;
 use Magento\Quote\Model\Cart\CartTotalRepository;
 use Magento\Quote\Model\QuoteFactory;
+use Magento\Quote\Model\QuoteRepository;
 
 class Index extends Action implements CsrfAwareActionInterface
 {
@@ -28,6 +29,7 @@ class Index extends Action implements CsrfAwareActionInterface
     protected $jsonFactory;
     protected $scopeConfig;
     protected $quoteFactory;
+    protected $quoteRepository;
     protected $regionFactory;
     protected $cartTotalRepository;
     private Debug $debug;
@@ -39,6 +41,7 @@ class Index extends Action implements CsrfAwareActionInterface
      * @param JsonFactory $jsonFactory
      * @param ScopeConfigInterface $scopeConfig
      * @param QuoteFactory $quoteFactory
+     * @param QuoteRepository $quoteRepository
      * @param RegionFactory $regionFactory
      * @param CartTotalRepository $cartTotalRepository
      * @param Debug $debug
@@ -50,6 +53,7 @@ class Index extends Action implements CsrfAwareActionInterface
         JsonFactory          $jsonFactory,
         ScopeConfigInterface $scopeConfig,
         QuoteFactory         $quoteFactory,
+        QuoteRepository      $quoteRepository,
         RegionFactory        $regionFactory,
         CartTotalRepository  $cartTotalRepository,
         Debug                $debug
@@ -59,6 +63,7 @@ class Index extends Action implements CsrfAwareActionInterface
         $this->jsonFactory = $jsonFactory;
         $this->scopeConfig = $scopeConfig;
         $this->quoteFactory = $quoteFactory;
+        $this->quoteRepository = $quoteRepository;
         $this->regionFactory = $regionFactory;
         $this->cartTotalRepository = $cartTotalRepository;
         $this->debug = $debug;
@@ -98,6 +103,7 @@ class Index extends Action implements CsrfAwareActionInterface
 
         $quoteReservedId = $request->getParam('reference');
         $quote = $this->quoteFactory->create()->load($quoteReservedId, 'reserved_order_id');
+        $quote = $this->quoteRepository->get($quote->getId());
 
         if (!$quote->getCustomerId()) {
             $quote->setCustomerEmail($customerData['shopperEmail']);
