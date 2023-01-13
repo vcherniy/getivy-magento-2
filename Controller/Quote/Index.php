@@ -123,6 +123,8 @@ class Index extends Action implements CsrfAwareActionInterface
         }
         $quote->save();
 
+        $data = [];
+
         if (key_exists('shipping', $customerData)) {
             $shippingMethods = [];
             $address->collectShippingRates();
