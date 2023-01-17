@@ -8,7 +8,7 @@ declare(strict_types=1);
 namespace Esparksinc\IvyPayment\Controller\Quote;
 
 use Esparksinc\IvyPayment\Model\Config;
-use Esparksinc\IvyPayment\Model\Debug;
+use Esparksinc\IvyPayment\Model\Logger;
 use Magento\Directory\Model\RegionFactory;
 use Magento\Framework\App\Action\Action;
 use Magento\Framework\App\Action\Context;
@@ -32,7 +32,7 @@ class Index extends Action implements CsrfAwareActionInterface
     protected $quoteRepository;
     protected $regionFactory;
     protected $cartTotalRepository;
-    private Debug $debug;
+    private Logger $logger;
 
     /**
      * @param Context $context
@@ -44,7 +44,7 @@ class Index extends Action implements CsrfAwareActionInterface
      * @param QuoteRepository $quoteRepository
      * @param RegionFactory $regionFactory
      * @param CartTotalRepository $cartTotalRepository
-     * @param Debug $debug
+     * @param Logger $logger
      */
     public function __construct(
         Context              $context,
@@ -56,7 +56,7 @@ class Index extends Action implements CsrfAwareActionInterface
         QuoteRepository      $quoteRepository,
         RegionFactory        $regionFactory,
         CartTotalRepository  $cartTotalRepository,
-        Debug                $debug
+        Logger               $logger
     ) {
         $this->config = $config;
         $this->json = $json;
@@ -66,19 +66,17 @@ class Index extends Action implements CsrfAwareActionInterface
         $this->quoteRepository = $quoteRepository;
         $this->regionFactory = $regionFactory;
         $this->cartTotalRepository = $cartTotalRepository;
-        $this->debug = $debug;
+        $this->logger = $logger;
         parent::__construct($context);
     }
 
     public function execute()
     {
         $request = $this->getRequest();
+        $quoteReservedId = $request->getParam('reference');
         $customerData = $this->json->unserialize((string)$request->getContent());
 
-        $this->debug->log(
-            '[IvyPayment] Get Quote СustomerData:',
-            $customerData
-        );
+        $this->logger->debugApiAction($this, $quoteReservedId, 'Got API customer data', $customerData);
 
         if (key_exists('shipping', $customerData)) {
             $countryId = $customerData['shipping']['shippingAddress']['country'];
@@ -101,7 +99,6 @@ class Index extends Action implements CsrfAwareActionInterface
             ];
         }
 
-        $quoteReservedId = $request->getParam('reference');
         $quote = $this->quoteFactory->create()->load($quoteReservedId, 'reserved_order_id');
         $quote = $this->quoteRepository->get($quote->getId());
 
@@ -158,6 +155,9 @@ class Index extends Action implements CsrfAwareActionInterface
                 'total' => $total
             ];
         }
+
+        $this->logger->debugApiAction($this, $quoteReservedId, 'Quote', $quote->getData());
+        $this->logger->debugApiAction($this, $quoteReservedId, 'Sent data', $data);
 
         $hash = hash_hmac(
             'sha256',

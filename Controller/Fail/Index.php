@@ -5,6 +5,7 @@
  */
 namespace Esparksinc\IvyPayment\Controller\Fail;
 
+use Esparksinc\IvyPayment\Model\Logger;
 use Magento\Framework\App\Action\Action;
 use Magento\Framework\App\Action\Context;
 use Magento\Sales\Api\OrderManagementInterface;
@@ -17,19 +18,23 @@ class Index extends Action
 {
     protected $orderManagement;
     protected $orderFactory;
+    private Logger $logger;
 
     /**
      * @param Context $context
      * @param OrderManagementInterface $orderManagement
      * @param OrderFactory $orderFactory
+     * @param Logger $logger
      */
     public function __construct(
         Context $context,
         OrderManagementInterface $orderManagement,
-        OrderFactory $orderFactory
+        OrderFactory $orderFactory,
+        Logger $logger
     ) {
         $this->orderManagement = $orderManagement;
         $this->orderFactory = $orderFactory;
+        $this->logger = $logger;
         parent::__construct($context);
     }
 
@@ -37,6 +42,8 @@ class Index extends Action
     {
         // Get success params from Ivy
         $magentoOrderId = $this->getRequest()->getParam('reference');
+
+        $this->logger->debugApiAction($this, $magentoOrderId, 'Got a fail');
 
         $order = $this->orderFactory->create()->loadByIncrementId($magentoOrderId);
         if($order->getId())

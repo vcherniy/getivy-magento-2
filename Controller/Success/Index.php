@@ -8,8 +8,8 @@ declare(strict_types=1);
 namespace Esparksinc\IvyPayment\Controller\Success;
 
 use Esparksinc\IvyPayment\Model\Config;
-use Esparksinc\IvyPayment\Model\Debug;
 use Esparksinc\IvyPayment\Model\IvyFactory;
+use Esparksinc\IvyPayment\Model\Logger;
 use GuzzleHttp\Client;
 use Magento\Checkout\Model\Session;
 use Magento\Checkout\Model\Type\Onepage;
@@ -35,7 +35,7 @@ class Index extends Action
     protected $json;
     protected $onePage;
     protected $checkoutSession;
-    private Debug $debug;
+    private Logger $logger;
 
     /**
      * @param Context $context
@@ -49,7 +49,7 @@ class Index extends Action
      * @param Config $config
      * @param Onepage $onePage
      * @param Session $checkoutSession
-     * @param Debug $debug
+     * @param Logger $logger
      */
     public function __construct(
         Context         $context,
@@ -63,7 +63,7 @@ class Index extends Action
         Config          $config,
         Onepage         $onePage,
         Session         $checkoutSession,
-        Debug           $debug
+        Logger          $logger
     ) {
         $this->resultRedirectFactory = $resultRedirectFactory;
         $this->order = $order;
@@ -75,7 +75,7 @@ class Index extends Action
         $this->config = $config;
         $this->onePage = $onePage;
         $this->checkoutSession = $checkoutSession;
-        $this->debug = $debug;
+        $this->logger = $logger;
         parent::__construct($context);
     }
     public function execute()
@@ -101,11 +101,15 @@ class Index extends Action
             'body' => $jsonContent,
         ];
 
+        $this->logger->debugApiAction($this, $magentoOrderId, 'Sent data', $data);
+
         $response = $client->post('order/details', $options);
 
         if ($response->getStatusCode() === 200) {
             $arrData = $this->json->unserialize((string)$response->getBody());
+            $this->logger->debugApiAction($this, $magentoOrderId, 'Got API response', $arrData);
         }
+        $this->logger->debugApiAction($this, $magentoOrderId, 'Got API response status', [$response->getStatusCode()]);
 
         // Save info in db
         $ivyModel = $this->ivy->create();
@@ -143,10 +147,7 @@ class Index extends Action
             $invoice->save();
         }
 
-        $this->debug->log(
-            '[IvyPayment] Get Quote orderDetails:',
-            $orderdetails->getData()
-        );
+        $this->logger->debugApiAction($this, $magentoOrderId, 'Order', $orderdetails->getData());
 
         if($orderdetails->getState() === 'processing')
         {

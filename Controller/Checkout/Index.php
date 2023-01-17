@@ -8,7 +8,7 @@ declare(strict_types=1);
 namespace Esparksinc\IvyPayment\Controller\Checkout;
 
 use Esparksinc\IvyPayment\Model\Config;
-use Esparksinc\IvyPayment\Model\Debug;
+use Esparksinc\IvyPayment\Model\Logger;
 use Esparksinc\IvyPayment\Model\IvyFactory;
 use GuzzleHttp\Client;
 use Magento\Checkout\Model\Session;
@@ -32,7 +32,7 @@ class Index extends Action
     protected $onePage;
     protected $ivy;
     protected $cartTotalRepository;
-    private Debug $debug;
+    private Logger $logger;
 
     /**
      * @param Context $context
@@ -45,7 +45,7 @@ class Index extends Action
      * @param Onepage $onePage
      * @param IvyFactory $ivy
      * @param CartTotalRepository $cartTotalRepository
-     * @param Debug $debug
+     * @param Logger $logger
      */
     public function __construct(
         Context                 $context,
@@ -58,7 +58,7 @@ class Index extends Action
         Onepage                 $onePage,
         IvyFactory              $ivy,
         CartTotalRepository     $cartTotalRepository,
-        Debug                   $debug
+        Logger                  $logger
     ) {
         $this->jsonFactory = $jsonFactory;
         $this->resultRedirectFactory = $resultRedirectFactory;
@@ -69,7 +69,7 @@ class Index extends Action
         $this->onePage = $onePage;
         $this->ivy = $ivy;
         $this->cartTotalRepository = $cartTotalRepository;
-        $this->debug = $debug;
+        $this->logger = $logger;
         parent::__construct($context);
     }
     public function execute()
@@ -125,6 +125,8 @@ class Index extends Action
             ];
         }
 
+        $this->logger->debugApiAction($this, $orderId, 'Sent data', $data);
+
         $jsonContent = $this->json->serialize($data);
         $client = new Client([
             'base_uri' => $this->config->getApiUrl(),
@@ -141,10 +143,7 @@ class Index extends Action
 
         $response = $client->post('checkout/session/create', $options);
 
-        $this->debug->log(
-            '[IvyPayment] Get Checkout Status Code:',
-            [$response->getStatusCode()]
-        );
+        $this->logger->debugApiAction($this, $orderId, 'Got API response status', [$response->getStatusCode()]);
 
         if ($response->getStatusCode() === 200) {
             //Order Place if not express

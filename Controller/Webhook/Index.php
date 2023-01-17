@@ -8,7 +8,7 @@ declare(strict_types=1);
 namespace Esparksinc\IvyPayment\Controller\Webhook;
 
 use Esparksinc\IvyPayment\Model\Config;
-use Esparksinc\IvyPayment\Model\Debug;
+use Esparksinc\IvyPayment\Model\Logger;
 use Magento\Framework\App\Action\Action;
 use Magento\Framework\App\Action\Context;
 use Magento\Framework\App\CsrfAwareActionInterface;
@@ -33,7 +33,7 @@ class Index extends Action implements CsrfAwareActionInterface
     protected $invoiceService;
     protected $transaction;
     protected $invoiceSender;
-    private Debug $debug;
+    private Logger $logger;
 
     /**
      * @param Context $context
@@ -45,7 +45,7 @@ class Index extends Action implements CsrfAwareActionInterface
      * @param InvoiceService $invoiceService
      * @param InvoiceSender $invoiceSender
      * @param Transaction $transaction
-     * @param Debug $debug
+     * @param Logger $logger
      */
     public function __construct(
         Context                  $context,
@@ -57,7 +57,7 @@ class Index extends Action implements CsrfAwareActionInterface
         InvoiceService           $invoiceService,
         InvoiceSender            $invoiceSender,
         Transaction              $transaction,
-        Debug                    $debug
+        Logger                   $logger
     ) {
         $this->config = $config;
         $this->order = $order;
@@ -67,7 +67,7 @@ class Index extends Action implements CsrfAwareActionInterface
         $this->invoiceService = $invoiceService;
         $this->transaction = $transaction;
         $this->invoiceSender = $invoiceSender;
-        $this->debug = $debug;
+        $this->logger = $logger;
         parent::__construct($context);
     }
     public function execute()
@@ -85,10 +85,8 @@ class Index extends Action implements CsrfAwareActionInterface
         $orderdetails = $this->order->create()->loadByIncrementId($magentoOrderId);
         $orderId = $orderdetails->getId();
 
-        $this->debug->log(
-            '[IvyPayment] Get Webhook Order Details:',
-            $orderdetails
-        );
+        $this->logger->debugApiAction($this, $magentoOrderId, 'Got API data', $arrData);
+        $this->logger->debugApiAction($this, $magentoOrderId, 'Order', $orderdetails->getData());
 
         if($arrData['type'] === 'order_updated' || $arrData['type'] === 'order_created')
         {

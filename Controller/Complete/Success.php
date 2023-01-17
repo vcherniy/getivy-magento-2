@@ -8,6 +8,7 @@ declare(strict_types=1);
 namespace Esparksinc\IvyPayment\Controller\Complete;
 
 use Esparksinc\IvyPayment\Model\Config;
+use Esparksinc\IvyPayment\Model\Logger;
 use Esparksinc\IvyPayment\Model\IvyFactory;
 use Magento\Checkout\Model\Session;
 use Magento\Checkout\Model\Type\Onepage;
@@ -34,6 +35,7 @@ class Success extends Action
     protected $onePage;
     protected $checkoutSession;
     protected $quoteRepository;
+    private Logger $logger;
 
     /**
      * @param Context $context
@@ -48,6 +50,7 @@ class Success extends Action
      * @param Onepage $onePage
      * @param Session $checkoutSession
      * @param QuoteRepository $quoteRepository
+     * @param Logger $logger
      */
     public function __construct(
         Context         $context,
@@ -61,7 +64,8 @@ class Success extends Action
         Config          $config,
         Onepage         $onePage,
         Session         $checkoutSession,
-        QuoteRepository $quoteRepository
+        QuoteRepository $quoteRepository,
+        Logger          $logger
     ) {
         $this->resultRedirectFactory = $resultRedirectFactory;
         $this->order = $order;
@@ -74,6 +78,7 @@ class Success extends Action
         $this->onePage = $onePage;
         $this->checkoutSession = $checkoutSession;
         $this->quoteRepository = $quoteRepository;
+        $this->logger = $logger;
         parent::__construct($context);
     }
     public function execute()
@@ -81,6 +86,8 @@ class Success extends Action
         // Get success params from Ivy
         $magentoOrderId = $this->getRequest()->getParam('reference');
         $ivyOrderId = $this->getRequest()->getParam('order-id');
+
+        $this->logger->debugApiAction($this, $magentoOrderId, 'Got success');
 
         // Save info in db
         $ivyModel = $this->ivy->create();
