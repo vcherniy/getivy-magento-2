@@ -87,6 +87,14 @@ class Index extends Action
         $this->quoteRepository->save($quote);
         $orderId = $quote->getReservedOrderId();
 
+        if($express) {
+            $quote->getShippingAddress()->setShippingMethod(null);
+            $quote->getShippingAddress()->setCollectShippingRates(true);
+            $quote->getShippingAddress()->collectShippingRates();
+            $quote->getShippingAddress()->save();
+            $quote->save();
+        }
+
         //Price
         $price = $this->getPrice($quote);
 
@@ -198,11 +206,11 @@ class Index extends Action
 
     private function getPrice($quote)
     {
-        //Price
-        $totalNet = $quote->getBaseSubtotal()?$quote->getBaseSubtotal():0;
-        $vat = $quote->getShippingAddress()->getBaseTaxAmount()?$quote->getShippingAddress()->getBaseTaxAmount():0;
-        $shippingAmount = $quote->getBaseShippingAmount()?$quote->getBaseShippingAmount():0;
-        $total = $quote->getBaseGrandTotal()?$quote->getBaseGrandTotal():0;
+
+        $totalNet = $quote->getBaseSubtotal() ? $quote->getBaseSubtotal() : 0;
+        $vat = $quote->getShippingAddress()->getBaseTaxAmount() ? $quote->getShippingAddress()->getBaseTaxAmount() : 0;
+        $shippingAmount = $quote->getBaseShippingAmount() ? $quote->getBaseShippingAmount() : 0;
+        $total = $quote->getBaseGrandTotal() ? $quote->getBaseGrandTotal() : 0;
         $currency = $quote->getBaseCurrencyCode();
 
         return [
@@ -216,7 +224,7 @@ class Index extends Action
 
     private function getShippingMethod($quote): array
     {
-        $shippingAmount = $quote->getBaseShippingAmount()?$quote->getBaseShippingAmount():0;
+        $shippingAmount = $quote->getBaseShippingAmount() ? $quote->getBaseShippingAmount() : 0;
         $countryId[] = $quote->getShippingAddress()->getCountryId();
         $shippingMethod = array();
         $shippingLine = [
