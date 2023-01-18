@@ -109,9 +109,10 @@ class Index extends Action
         try {
             $response = $client->post('order/details', $options);
         } catch (ClientException|ServerException $exception) {
-            $body = GuzzleMessage::bodySummary($exception->getResponse(), 1000);
+            $response = $exception->getResponse();
+            $errorData = GuzzleMessage::bodySummary($response, 1000);
             $this->logger->debugApiAction($this, $magentoOrderId, 'Got API response exception',
-                [$body]
+                [$errorData]
             );
             throw $exception;
         } finally {
