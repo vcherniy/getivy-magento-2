@@ -11,6 +11,8 @@ use Esparksinc\IvyPayment\Model\Config;
 use Esparksinc\IvyPayment\Model\Logger;
 use Esparksinc\IvyPayment\Model\IvyFactory;
 use GuzzleHttp\Client;
+use GuzzleHttp\Exception\ClientException;
+use GuzzleHttp\Exception\ServerException;
 use Magento\Checkout\Model\Session;
 use Magento\Checkout\Model\Type\Onepage;
 use Magento\Framework\App\Action\Action;
@@ -125,8 +127,6 @@ class Index extends Action
             ];
         }
 
-        $this->logger->debugApiAction($this, $orderId, 'Sent data', $data);
-
         $jsonContent = $this->json->serialize($data);
         $client = new Client([
             'base_uri' => $this->config->getApiUrl(),
@@ -141,7 +141,16 @@ class Index extends Action
             'body' => $jsonContent,
         ];
 
-        $response = $client->post('checkout/session/create', $options);
+        $this->logger->debugApiAction($this, $orderId, 'Sent data', $data);
+
+        try {
+            $response = $client->post('checkout/session/create', $options);
+        } catch (ClientException|ServerException $exception) {
+            $this->logger->debugApiAction($this, $orderId, 'Got API response exception',
+                [$exception->getResponse()]
+            );
+            throw $exception;
+        }
 
         $this->logger->debugApiAction($this, $orderId, 'Got API response status', [$response->getStatusCode()]);
 

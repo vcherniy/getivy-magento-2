@@ -4,11 +4,9 @@ declare(strict_types=1);
 
 namespace Esparksinc\IvyPayment\Model;
 
-use DateTimeZone;
 use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\Logger\Monolog;
 use Magento\Framework\Serialize\Serializer\Json;
-use Monolog\DateTimeImmutable;
 
 class Logger extends Monolog
 {
@@ -17,7 +15,7 @@ class Logger extends Monolog
     private ScopeConfigInterface $scopeConfig;
     private Json $json;
     private ?bool $isEnabled = null;
-    private bool $alreadyKeptRequest = false;
+    private array $keptRequestForActions = [];
 
     public function __construct(
         ScopeConfigInterface $scopeConfig,
@@ -52,22 +50,23 @@ class Logger extends Monolog
         string $message,
         array $context = []
     ) {
+        /** @var \Magento\Framework\App\Request\Http $request */
         $request = $controller->getRequest();
+        $actionId = $request->getControllerName() . '_' . $request->getActionName();
 
         $allContextData = [
             'context' => $context
         ];
 
-        if (!$this->alreadyKeptRequest) {
+        if (!in_array($actionId, $this->keptRequestForActions)) {
             $allContextData['request'] = $this->getRequestData($request);
-            $this->alreadyKeptRequest = true;
+            $this->keptRequestForActions[] = $actionId;
         }
 
-        $message = sprintf('#%s: %s (%s_%s)',
+        $message = sprintf('#%s %s: %s',
             $orderId,
-            $message,
-            $request->getControllerName(),
-            $request->getActionName()
+            $actionId,
+            $message
         );
         $this->debug($message, $allContextData);
     }

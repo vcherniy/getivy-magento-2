@@ -11,6 +11,8 @@ use Esparksinc\IvyPayment\Model\Config;
 use Esparksinc\IvyPayment\Model\IvyFactory;
 use Esparksinc\IvyPayment\Model\Logger;
 use GuzzleHttp\Client;
+use GuzzleHttp\Exception\ClientException;
+use GuzzleHttp\Exception\ServerException;
 use Magento\Checkout\Model\Session;
 use Magento\Checkout\Model\Type\Onepage;
 use Magento\Framework\App\Action\Action;
@@ -103,13 +105,21 @@ class Index extends Action
 
         $this->logger->debugApiAction($this, $magentoOrderId, 'Sent data', $data);
 
-        $response = $client->post('order/details', $options);
+        try {
+            $response = $client->post('order/details', $options);
+        } catch (ClientException|ServerException $exception) {
+            $this->logger->debugApiAction($this, $magentoOrderId, 'Got API response exception',
+                [$exception->getResponse()]
+            );
+            throw $exception;
+        }
+
+        $this->logger->debugApiAction($this, $magentoOrderId, 'Got API response status', [$response->getStatusCode()]);
 
         if ($response->getStatusCode() === 200) {
             $arrData = $this->json->unserialize((string)$response->getBody());
             $this->logger->debugApiAction($this, $magentoOrderId, 'Got API response', $arrData);
         }
-        $this->logger->debugApiAction($this, $magentoOrderId, 'Got API response status', [$response->getStatusCode()]);
 
         // Save info in db
         $ivyModel = $this->ivy->create();
