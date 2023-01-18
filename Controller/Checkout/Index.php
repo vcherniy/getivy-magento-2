@@ -9,11 +9,11 @@ namespace Esparksinc\IvyPayment\Controller\Checkout;
 
 use Esparksinc\IvyPayment\Model\Config;
 use Esparksinc\IvyPayment\Model\Logger;
+use Esparksinc\IvyPayment\Model\ErrorResolver;
 use Esparksinc\IvyPayment\Model\IvyFactory;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\ClientException;
 use GuzzleHttp\Exception\ServerException;
-use GuzzleHttp\Psr7\Message as GuzzleMessage;
 use Magento\Checkout\Model\Session;
 use Magento\Checkout\Model\Type\Onepage;
 use Magento\Framework\App\Action\Action;
@@ -35,7 +35,8 @@ class Index extends Action
     protected $onePage;
     protected $ivy;
     protected $cartTotalRepository;
-    private Logger $logger;
+    protected Logger $logger;
+    protected ErrorResolver $errorResolver;
 
     /**
      * @param Context $context
@@ -49,6 +50,7 @@ class Index extends Action
      * @param IvyFactory $ivy
      * @param CartTotalRepository $cartTotalRepository
      * @param Logger $logger
+     * @param ErrorResolver $errorResolver
      */
     public function __construct(
         Context                 $context,
@@ -61,7 +63,8 @@ class Index extends Action
         Onepage                 $onePage,
         IvyFactory              $ivy,
         CartTotalRepository     $cartTotalRepository,
-        Logger                  $logger
+        Logger                  $logger,
+        ErrorResolver           $errorResolver
     ) {
         $this->jsonFactory = $jsonFactory;
         $this->resultRedirectFactory = $resultRedirectFactory;
@@ -73,6 +76,7 @@ class Index extends Action
         $this->ivy = $ivy;
         $this->cartTotalRepository = $cartTotalRepository;
         $this->logger = $logger;
+        $this->errorResolver = $errorResolver;
         parent::__construct($context);
     }
     public function execute()
@@ -81,8 +85,7 @@ class Index extends Action
         $ivyModel = $this->ivy->create();
 
         $quote = $this->checkoutSession->getQuote();
-        if(!$quote->getReservedOrderId())
-        {
+        if (!$quote->getReservedOrderId()) {
             $quote->reserveOrderId();
             $ivyModel->setMagentoOrderId($quote->getReservedOrderId());
         }
@@ -147,8 +150,9 @@ class Index extends Action
         try {
             $response = $client->post('checkout/session/create', $options);
         } catch (ClientException|ServerException $exception) {
-            $response = $exception->getResponse();
-            $errorData = GuzzleMessage::bodySummary($response, 1000);
+            $this->errorResolver->tryResolveException($quote, $exception);
+
+            $errorData = $this->errorResolver->formatErrorData($exception);
             $this->logger->debugApiAction($this, $orderId, 'Got API response exception',
                 [$errorData]
             );

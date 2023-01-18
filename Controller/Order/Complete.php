@@ -8,6 +8,7 @@ declare(strict_types=1);
 namespace Esparksinc\IvyPayment\Controller\Order;
 
 use Esparksinc\IvyPayment\Model\Config;
+use Esparksinc\IvyPayment\Model\ErrorResolver;
 use Esparksinc\IvyPayment\Model\Logger;
 use Magento\Directory\Model\RegionFactory;
 use Magento\Framework\App\Action\Action;
@@ -36,7 +37,8 @@ class Complete extends Action implements CsrfAwareActionInterface
     protected $cartTotalRepository;
     protected $quoteManagement;
     protected $storeManager;
-    private Logger $logger;
+    protected Logger $logger;
+    protected ErrorResolver $errorResolver;
 
     /**
      * @param Context $context
@@ -51,6 +53,7 @@ class Complete extends Action implements CsrfAwareActionInterface
      * @param CartManagementInterface $quoteManagement
      * @param StoreManagerInterface $storeManager
      * @param Logger $logger
+     * @param ErrorResolver $errorResolver
      */
     public function __construct(
         Context                 $context,
@@ -64,7 +67,8 @@ class Complete extends Action implements CsrfAwareActionInterface
         CartTotalRepository     $cartTotalRepository,
         CartManagementInterface $quoteManagement,
         StoreManagerInterface   $storeManager,
-        Logger                  $logger
+        Logger                  $logger,
+        ErrorResolver           $errorResolver
     ) {
         $this->config = $config;
         $this->json = $json;
@@ -77,6 +81,7 @@ class Complete extends Action implements CsrfAwareActionInterface
         $this->quoteManagement = $quoteManagement;
         $this->storeManager = $storeManager;
         $this->logger = $logger;
+        $this->errorResolver = $errorResolver;
         parent::__construct($context);
     }
     public function execute()
@@ -135,8 +140,9 @@ class Complete extends Action implements CsrfAwareActionInterface
         $qouteGrandTotal = $quote->getGrandTotal();
         $ivyTotal = $customerData['price']['total'];
 
-        if($qouteGrandTotal != $ivyTotal)
-        {
+        if ($qouteGrandTotal != $ivyTotal) {
+            // return 400 status in this callback will cancel order id on the Ivy Payment Processor side
+            $this->errorResolver->forceReserveOrderId($quote);
             return http_response_code(400);
         }
 

@@ -9,11 +9,11 @@ namespace Esparksinc\IvyPayment\Controller\Success;
 
 use Esparksinc\IvyPayment\Model\Config;
 use Esparksinc\IvyPayment\Model\IvyFactory;
+use Esparksinc\IvyPayment\Model\ErrorResolver;
 use Esparksinc\IvyPayment\Model\Logger;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\ClientException;
 use GuzzleHttp\Exception\ServerException;
-use GuzzleHttp\Psr7\Message as GuzzleMessage;
 use Magento\Checkout\Model\Session;
 use Magento\Checkout\Model\Type\Onepage;
 use Magento\Framework\App\Action\Action;
@@ -38,7 +38,8 @@ class Index extends Action
     protected $json;
     protected $onePage;
     protected $checkoutSession;
-    private Logger $logger;
+    protected Logger $logger;
+    protected ErrorResolver $errorResolver;
 
     /**
      * @param Context $context
@@ -53,6 +54,7 @@ class Index extends Action
      * @param Onepage $onePage
      * @param Session $checkoutSession
      * @param Logger $logger
+     * @param ErrorResolver $resolver
      */
     public function __construct(
         Context         $context,
@@ -66,7 +68,8 @@ class Index extends Action
         Config          $config,
         Onepage         $onePage,
         Session         $checkoutSession,
-        Logger          $logger
+        Logger          $logger,
+        ErrorResolver   $resolver
     ) {
         $this->resultRedirectFactory = $resultRedirectFactory;
         $this->order = $order;
@@ -79,6 +82,7 @@ class Index extends Action
         $this->onePage = $onePage;
         $this->checkoutSession = $checkoutSession;
         $this->logger = $logger;
+        $this->errorResolver = $resolver;
         parent::__construct($context);
     }
     public function execute()
@@ -109,8 +113,10 @@ class Index extends Action
         try {
             $response = $client->post('order/details', $options);
         } catch (ClientException|ServerException $exception) {
-            $response = $exception->getResponse();
-            $errorData = GuzzleMessage::bodySummary($response, 1000);
+            $quote = $this->checkoutSession->getQuote();
+            $this->errorResolver->forceReserveOrderId($quote);
+
+            $errorData = $this->errorResolver->formatErrorData($exception);
             $this->logger->debugApiAction($this, $magentoOrderId, 'Got API response exception',
                 [$errorData]
             );
