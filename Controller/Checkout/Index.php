@@ -84,7 +84,6 @@ class Index extends Action
             $ivyModel->setMagentoOrderId($quote->getReservedOrderId());
         }
 
-        $this->quoteRepository->save($quote);
         $orderId = $quote->getReservedOrderId();
 
         if($express) {
@@ -92,8 +91,9 @@ class Index extends Action
             $quote->getShippingAddress()->setCollectShippingRates(true);
             $quote->getShippingAddress()->collectShippingRates();
             $quote->getShippingAddress()->save();
-            $quote->save();
         }
+
+        $this->quoteRepository->save($quote);
 
         //Price
         $price = $this->getPrice($quote);
