@@ -109,7 +109,7 @@ class Index extends Action
             $response = $client->post('order/details', $options);
         } catch (ClientException|ServerException $exception) {
             $this->logger->debugApiAction($this, $magentoOrderId, 'Got API response exception',
-                [$exception->getResponse()]
+                [$exception->getResponse()->getBody(), $exception->getResponse()->getStatusCode()]
             );
             throw $exception;
         }

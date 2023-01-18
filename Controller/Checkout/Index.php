@@ -147,7 +147,7 @@ class Index extends Action
             $response = $client->post('checkout/session/create', $options);
         } catch (ClientException|ServerException $exception) {
             $this->logger->debugApiAction($this, $orderId, 'Got API response exception',
-                [$exception->getResponse()]
+                [$exception->getResponse()->getBody(), $exception->getResponse()->getStatusCode()]
             );
             throw $exception;
         }
