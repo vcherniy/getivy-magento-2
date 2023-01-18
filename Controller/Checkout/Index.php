@@ -13,6 +13,7 @@ use Esparksinc\IvyPayment\Model\IvyFactory;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\ClientException;
 use GuzzleHttp\Exception\ServerException;
+use GuzzleHttp\Psr7\Message as GuzzleMessage;
 use Magento\Checkout\Model\Session;
 use Magento\Checkout\Model\Type\Onepage;
 use Magento\Framework\App\Action\Action;
@@ -146,13 +147,14 @@ class Index extends Action
         try {
             $response = $client->post('checkout/session/create', $options);
         } catch (ClientException|ServerException $exception) {
+            $body = GuzzleMessage::bodySummary($exception->getResponse(), 1000);
             $this->logger->debugApiAction($this, $orderId, 'Got API response exception',
-                [$exception->getResponse()->getBody(), $exception->getResponse()->getStatusCode()]
+                [$body]
             );
             throw $exception;
+        } finally {
+            $this->logger->debugApiAction($this, $orderId, 'Got API response status', [$response->getStatusCode()]);
         }
-
-        $this->logger->debugApiAction($this, $orderId, 'Got API response status', [$response->getStatusCode()]);
 
         if ($response->getStatusCode() === 200) {
             //Order Place if not express
