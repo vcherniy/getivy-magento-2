@@ -32,6 +32,7 @@ class ErrorResolver
      */
     public function forceReserveOrderId(CartInterface $quote): bool
     {
+        $quote->setReservedOrderId(null);
         $quote->reserveOrderId();
         $this->quoteRepository->save($quote);
         return true;
@@ -52,7 +53,7 @@ class ErrorResolver
         return false;
     }
 
-    public function formatErrorData(BadResponseException $exception): string|array
+    public function formatErrorData(BadResponseException $exception)
     {
         $response = $exception->getResponse();
         $errorData = GuzzleMessage::bodySummary($response, 10000);

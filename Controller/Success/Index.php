@@ -113,6 +113,8 @@ class Index extends Action
         try {
             $response = $client->post('order/details', $options);
         } catch (ClientException|ServerException $exception) {
+            $response = $exception->getResponse();
+
             $quote = $this->checkoutSession->getQuote();
             $this->errorResolver->forceReserveOrderId($quote);
 

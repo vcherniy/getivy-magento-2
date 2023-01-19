@@ -150,6 +150,8 @@ class Index extends Action
         try {
             $response = $client->post('checkout/session/create', $options);
         } catch (ClientException|ServerException $exception) {
+            $response = $exception->getResponse();
+
             $this->errorResolver->tryResolveException($quote, $exception);
 
             $errorData = $this->errorResolver->formatErrorData($exception);
