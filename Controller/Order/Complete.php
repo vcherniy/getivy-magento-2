@@ -137,7 +137,7 @@ class Complete extends Action implements CsrfAwareActionInterface
 
         if($qouteGrandTotal != $ivyTotal)
         {
-            return http_response_code(400);
+            return $this->jsonFactory->create()->setHttpResponseCode(400)->setData([]);
         }
 
         $this->debug->log(
