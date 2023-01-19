@@ -90,8 +90,16 @@ class Index extends Action
             $ivyModel->setMagentoOrderId($quote->getReservedOrderId());
         }
 
-        $this->quoteRepository->save($quote);
         $orderId = $quote->getReservedOrderId();
+
+        if($express) {
+            $quote->getShippingAddress()->setShippingMethod(null);
+            $quote->getShippingAddress()->setCollectShippingRates(true);
+            $quote->getShippingAddress()->collectShippingRates();
+            $quote->getShippingAddress()->save();
+        }
+
+        $this->quoteRepository->save($quote);
 
         //Price
         $price = $this->getPrice($quote);
@@ -215,12 +223,12 @@ class Index extends Action
 
     private function getPrice($quote)
     {
-        //Price
-        $totalNet = $quote->getBaseSubtotal()?$quote->getBaseSubtotal():0;
-        $vat = $quote->getShippingAddress()->getBaseTaxAmount()?$quote->getShippingAddress()->getBaseTaxAmount():0;
-        $shippingAmount = $quote->getBaseShippingAmount()?$quote->getBaseShippingAmount():0;
-        $total = $quote->getBaseGrandTotal()?$quote->getBaseGrandTotal():0;
+
+        $vat = $quote->getBaseTaxAmount() ? $quote->getBaseTaxAmount() : 0;
+        $shippingAmount = $quote->getBaseShippingAmount() ? $quote->getBaseShippingAmount() : 0;
+        $total = $quote->getBaseGrandTotal() ? $quote->getBaseGrandTotal() : 0;
         $currency = $quote->getBaseCurrencyCode();
+        $totalNet = $total - $vat;
 
         return [
             'totalNet' => $totalNet,
@@ -233,7 +241,7 @@ class Index extends Action
 
     private function getShippingMethod($quote): array
     {
-        $shippingAmount = $quote->getBaseShippingAmount()?$quote->getBaseShippingAmount():0;
+        $shippingAmount = $quote->getBaseShippingAmount() ? $quote->getBaseShippingAmount() : 0;
         $countryId[] = $quote->getShippingAddress()->getCountryId();
         $shippingMethod = array();
         $shippingLine = [
