@@ -207,11 +207,11 @@ class Index extends Action
     private function getPrice($quote)
     {
 
-        $totalNet = $quote->getBaseSubtotal() ? $quote->getBaseSubtotal() : 0;
-        $vat = $quote->getShippingAddress()->getBaseTaxAmount() ? $quote->getShippingAddress()->getBaseTaxAmount() : 0;
+        $vat = $quote->getBaseTaxAmount() ? $quote->getBaseTaxAmount() : 0;
         $shippingAmount = $quote->getBaseShippingAmount() ? $quote->getBaseShippingAmount() : 0;
         $total = $quote->getBaseGrandTotal() ? $quote->getBaseGrandTotal() : 0;
         $currency = $quote->getBaseCurrencyCode();
+        $totalNet = $total - $vat;
 
         return [
             'totalNet' => $totalNet,
