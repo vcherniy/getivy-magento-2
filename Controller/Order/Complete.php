@@ -97,8 +97,8 @@ class Complete extends Action implements CsrfAwareActionInterface
         $quote = $this->quoteFactory->create()->load($quoteReservedId,'reserved_order_id');
         $quote = $this->quoteRepository->get($quote->getId());
 
-        $this->logger->debugApiAction($this, $quoteReservedId, 'Quote billing address',
-            $quote->getBillingAddress()->getData()
+        $this->logger->debugApiAction($this, $quoteReservedId, 'Quote shipping address',
+            $quote->getShippingAddress()->getData()
         );
 
         $shippingAddress = $quote->getShippingAddress();
@@ -121,15 +121,16 @@ class Complete extends Action implements CsrfAwareActionInterface
 
         $quote->setCustomerFirstname($quote->getBillingAddress()->getFirstname());
         $quote->setCustomerLastname($quote->getBillingAddress()->getLastname());
-        $quote->save();
+        $this->quoteRepository->save($quote);
 
         $shippingAddress->setCollectShippingRates(true)
             ->setShippingMethod($customerData['shippingMethod']['reference'])
             ->collectShippingRates();
         $quote->setPaymentMethod('ivy');
-        $quote->save();
+        $this->quoteRepository->save($quote);
         $quote->getPayment()->importData(['method' => 'ivy']);
-        $quote->collectTotals()->save();
+        $quote->collectTotals();
+        $this->quoteRepository->save($quote);
 
         $this->logger->debugApiAction($this, $quoteReservedId, 'Quote',
             $quote->getData()

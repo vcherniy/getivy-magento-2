@@ -136,7 +136,8 @@ class Index extends Action implements CsrfAwareActionInterface
             $data['shippingMethods'] = $shippingMethods;
         }
 
-        $quote->collectTotals()->save();
+        $quote->collectTotals();
+        $this->quoteRepository->save($quote);
 
         //Get discount
         $totals = $this->cartTotalRepository->get($quote->getId());

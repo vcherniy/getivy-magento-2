@@ -172,7 +172,7 @@ class Index extends Action implements CsrfAwareActionInterface
         }
     }
 
-    private function  createInvoice($arrData)
+    private function createInvoice($arrData)
     {
         $magentoOrderId = $arrData['payload']['referenceId'];
         $ivyOrderId = $arrData['payload']['id'];

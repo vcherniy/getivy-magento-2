@@ -23,11 +23,11 @@ class Invoice extends \Magento\Framework\App\Helper\AbstractHelper
     protected $invoiceSender;
 
     public function __construct(
-        Context $context,
         OrderFactory    $order,
         InvoiceService  $invoiceService,
         Transaction     $transaction,
-        InvoiceSender   $invoiceSender
+        InvoiceSender   $invoiceSender,
+        Context         $context
     ) {
         $this->order = $order;
         $this->invoiceService = $invoiceService;

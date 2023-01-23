@@ -10,12 +10,11 @@ use Magento\Framework\Serialize\Serializer\Json;
 
 class Logger extends Monolog
 {
-    private const DEBUG_ENABLED_PATH = 'payment/ivy/debug';
-
-    private ScopeConfigInterface $scopeConfig;
-    private Json $json;
-    private ?bool $isEnabled = null;
-    private array $keptRequestForActions = [];
+    protected const DEBUG_ENABLED_PATH = 'payment/ivy/debug';
+    protected $scopeConfig;
+    protected $json;
+    protected $isEnabled = null;
+    protected $keptRequestForActions = [];
 
     public function __construct(
         ScopeConfigInterface $scopeConfig,

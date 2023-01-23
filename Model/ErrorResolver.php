@@ -12,8 +12,8 @@ use Magento\Quote\Api\Data\CartInterface;
 
 class ErrorResolver
 {
-    protected CartRepositoryInterface $quoteRepository;
-    protected Json $json;
+    protected $quoteRepository;
+    protected $json;
 
     public function __construct(
         CartRepositoryInterface $quoteRepository,
