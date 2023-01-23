@@ -109,6 +109,9 @@ class Index extends Action
 
         $mcc = $this->config->getMcc();
 
+        // get plugin version from composer.json and set to field plugin
+        $plugin = $this->getPluginVersion();
+
         if($express) {
             $phone = ['phone' => true];
             $data = [
@@ -117,7 +120,8 @@ class Index extends Action
                 'category' => $mcc,
                 'price' => $price,
                 'lineItems' => $ivyLineItems,
-                'required' => $phone
+                'required' => $phone,
+                'plugin' => $plugin,
             ];
         } else {
             $prefill = ["email" => $quote->getBillingAddress()->getEmail()];
@@ -130,6 +134,7 @@ class Index extends Action
                 'shippingMethods' =>  $shippingMethods,
                 'billingAddress' => $billingAddress,
                 'prefill' => $prefill,
+                'plugin' => $plugin,
             ];
         }
 
@@ -248,5 +253,10 @@ class Index extends Action
             'zipCode' => $quote->getBillingAddress()->getPostcode(),
             'country' => $quote->getBillingAddress()->getCountryId(),
         ];
+    }
+
+    private function getPluginVersion(): string {
+        $composerJson = json_decode(file_get_contents(__DIR__ . '/../../../composer.json'), true);
+        return $composerJson['version'];
     }
 }
