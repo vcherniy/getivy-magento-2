@@ -35,8 +35,8 @@ class Index extends Action
     protected $onePage;
     protected $ivy;
     protected $cartTotalRepository;
-    protected Logger $logger;
-    protected ErrorResolver $errorResolver;
+    protected $logger;
+    protected $errorResolver;
 
     /**
      * @param Context $context
@@ -93,7 +93,7 @@ class Index extends Action
         $orderId = $quote->getReservedOrderId();
 
         if($express) {
-            $quote->getShippingAddress()->setShippingMethod(null);
+            $quote->getShippingAddress()->setShippingMethod('');
             $quote->getShippingAddress()->setCollectShippingRates(true);
             $quote->getShippingAddress()->collectShippingRates();
             $quote->getShippingAddress()->save();

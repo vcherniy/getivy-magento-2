@@ -37,8 +37,8 @@ class Complete extends Action implements CsrfAwareActionInterface
     protected $cartTotalRepository;
     protected $quoteManagement;
     protected $storeManager;
-    protected Logger $logger;
-    protected ErrorResolver $errorResolver;
+    protected $logger;
+    protected $errorResolver;
 
     /**
      * @param Context $context
@@ -101,37 +101,35 @@ class Complete extends Action implements CsrfAwareActionInterface
             $quote->getBillingAddress()->getData()
         );
 
-        if(!$quote->getBillingAddress()->getFirstname())
+        $shippingAddress = $quote->getShippingAddress();
+        if (!$quote->getBillingAddress()->getFirstname())
         {
-            $shippingAddress = $quote->getShippingAddress();
-            $telephone = $shippingAddress->getTelephone();
-            $billing =[
+            $customerBillingData = $customerData['billingAddress'];
+            $billing = [
                 'address' =>[
-                    'firstname'    => $customerData['billingAddress']['firstName'],
-                    'lastname'     => $customerData['billingAddress']['lastName'],
-                    'street' => $customerData['billingAddress']['line1'],
-                    'city' => $customerData['billingAddress']['city'],
-                    'country_id' => $customerData['billingAddress']['country'],
-                    'postcode' => $customerData['billingAddress']['zipCode'],
-                    'telephone' => $telephone
+                    'firstname'  => $customerBillingData['firstName'],
+                    'lastname'   => $customerBillingData['lastName'],
+                    'street'     => $customerBillingData['line1'],
+                    'city'       => $customerBillingData['city'],
+                    'country_id' => $customerBillingData['country'],
+                    'postcode'   => $customerBillingData['zipCode'],
+                    'telephone'  => $shippingAddress->getTelephone()
                 ]
             ];
-            $quote->getBillingAddress()->addData($billing['address']);
-            $quote->setCustomerFirstname($quote->getBillingAddress()->getFirstname());
-            $quote->setCustomerLastname($quote->getBillingAddress()->getLastname());
-
-            $shippingAddress->setCollectShippingRates(true)
-                ->collectShippingRates()
-                ->setShippingMethod($customerData['shippingMethod']['reference']);
-            $quote->setPaymentMethod('ivy');
-            $quote->save();
-            $quote->getPayment()->importData(['method' => 'ivy']);
-            $quote->collectTotals()->save();
-        } else {
-            $quote->setCustomerFirstname($quote->getBillingAddress()->getFirstname());
-            $quote->setCustomerLastname($quote->getBillingAddress()->getLastname());
-            $quote->save();
+            $shippingAddress->addData($billing['address']);
         }
+
+        $quote->setCustomerFirstname($quote->getBillingAddress()->getFirstname());
+        $quote->setCustomerLastname($quote->getBillingAddress()->getLastname());
+        $quote->save();
+
+        $shippingAddress->setCollectShippingRates(true)
+            ->setShippingMethod($customerData['shippingMethod']['reference'])
+            ->collectShippingRates();
+        $quote->setPaymentMethod('ivy');
+        $quote->save();
+        $quote->getPayment()->importData(['method' => 'ivy']);
+        $quote->collectTotals()->save();
 
         $this->logger->debugApiAction($this, $quoteReservedId, 'Quote',
             $quote->getData()

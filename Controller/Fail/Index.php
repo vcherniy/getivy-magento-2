@@ -18,7 +18,7 @@ class Index extends Action
 {
     protected $orderManagement;
     protected $orderFactory;
-    private Logger $logger;
+    protected $logger;
 
     /**
      * @param Context $context

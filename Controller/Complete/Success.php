@@ -35,7 +35,7 @@ class Success extends Action
     protected $onePage;
     protected $checkoutSession;
     protected $quoteRepository;
-    private Logger $logger;
+    protected $logger;
 
     /**
      * @param Context $context

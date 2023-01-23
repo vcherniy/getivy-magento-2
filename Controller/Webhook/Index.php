@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace Esparksinc\IvyPayment\Controller\Webhook;
 
+use Esparksinc\IvyPayment\Helper\Invoice as InvoiceHelper;
 use Esparksinc\IvyPayment\Model\Config;
 use Esparksinc\IvyPayment\Model\Logger;
 use Magento\Framework\App\Action\Action;
@@ -19,9 +20,6 @@ use Magento\Sales\Api\OrderManagementInterface;
 use Magento\Sales\Api\RefundInvoiceInterface;
 use Magento\Sales\Model\Order\Invoice;
 use Magento\Sales\Model\OrderFactory;
-use Magento\Sales\Model\Service\InvoiceService;
-use Magento\Framework\DB\Transaction;
-use Magento\Sales\Model\Order\Email\Sender\InvoiceSender;
 
 class Index extends Action implements CsrfAwareActionInterface
 {
@@ -30,10 +28,8 @@ class Index extends Action implements CsrfAwareActionInterface
     protected $json;
     protected $refund;
     protected $orderManagement;
-    protected $invoiceService;
-    protected $transaction;
-    protected $invoiceSender;
-    private Logger $logger;
+    protected $logger;
+    protected $invoiceHelper;
 
     /**
      * @param Context $context
@@ -42,10 +38,8 @@ class Index extends Action implements CsrfAwareActionInterface
      * @param Json $json
      * @param RefundInvoiceInterface $refund
      * @param OrderManagementInterface $orderManagement
-     * @param InvoiceService $invoiceService
-     * @param InvoiceSender $invoiceSender
-     * @param Transaction $transaction
      * @param Logger $logger
+     * @param InvoiceHelper $invoiceHelper
      */
     public function __construct(
         Context                  $context,
@@ -54,20 +48,16 @@ class Index extends Action implements CsrfAwareActionInterface
         Json                     $json,
         RefundInvoiceInterface   $refund,
         OrderManagementInterface $orderManagement,
-        InvoiceService           $invoiceService,
-        InvoiceSender            $invoiceSender,
-        Transaction              $transaction,
-        Logger                   $logger
+        Logger                   $logger,
+        InvoiceHelper            $invoiceHelper
     ) {
         $this->config = $config;
         $this->order = $order;
         $this->json = $json;
         $this->refund = $refund;
         $this->orderManagement = $orderManagement;
-        $this->invoiceService = $invoiceService;
-        $this->transaction = $transaction;
-        $this->invoiceSender = $invoiceSender;
         $this->logger = $logger;
+        $this->invoiceHelper = $invoiceHelper;
         parent::__construct($context);
     }
     public function execute()
@@ -90,7 +80,10 @@ class Index extends Action implements CsrfAwareActionInterface
 
         if($arrData['type'] === 'order_updated' || $arrData['type'] === 'order_created')
         {
-            if($arrData['payload']['paymentStatus'] === 'failed' || $arrData['payload']['paymentStatus'] === 'canceled' || $arrData['payload']['status'] === 'failed' || $arrData['payload']['status'] === 'canceled')
+            if ($arrData['payload']['paymentStatus'] === 'failed'
+                || $arrData['payload']['paymentStatus'] === 'canceled'
+                || $arrData['payload']['status'] === 'failed'
+                || $arrData['payload']['status'] === 'canceled')
             {
                 if ($orderdetails->canInvoice()) {
                     $this->orderManagement->cancel($orderId);
@@ -185,33 +178,6 @@ class Index extends Action implements CsrfAwareActionInterface
         $ivyOrderId = $arrData['payload']['id'];
         $orderdetails = $this->order->create()->loadByIncrementId($magentoOrderId);
 
-        if ($orderdetails->canInvoice()) {
-            $invoice = $this->invoiceService->prepareInvoice($orderdetails);
-            $invoice->setRequestedCaptureCase(Invoice::CAPTURE_ONLINE);
-            $invoice->register();
-            $invoice->getOrder()->setIsInProcess(true);
-            $invoice->save();
-            $transactionSave = $this->transaction->addObject(
-                $invoice
-            )->addObject(
-                $invoice->getOrder()
-            );
-            $transactionSave->save();
-            $this->invoiceSender->send($invoice);
-
-            $orderdetails->save();
-        }
-
-        foreach ($orderdetails->getInvoiceCollection() as $invoice)
-        {
-            $invoice->setTransactionId($ivyOrderId);
-            $invoice->save();
-        }
-
-        if($orderdetails->getState() === 'processing')
-        {
-            $orderdetails->setStatus('payment_authorised');
-            $orderdetails->save();
-        }
+        $this->invoiceHelper->createInvoice($orderdetails, $ivyOrderId);
     }
 }

@@ -32,7 +32,7 @@ class Index extends Action implements CsrfAwareActionInterface
     protected $quoteRepository;
     protected $regionFactory;
     protected $cartTotalRepository;
-    private Logger $logger;
+    protected $logger;
 
     /**
      * @param Context $context
@@ -78,27 +78,6 @@ class Index extends Action implements CsrfAwareActionInterface
 
         $this->logger->debugApiAction($this, $quoteReservedId, 'Got API customer data', $customerData);
 
-        if (key_exists('shipping', $customerData)) {
-            $countryId = $customerData['shipping']['shippingAddress']['country'];
-            $regionCode = $customerData['shipping']['shippingAddress']['region'];
-            $regionId = $this->regionFactory->create()->loadByCode($regionCode, $countryId)->getId();
-            $regionName = $this->regionFactory->create()->loadByCode($regionCode, $countryId)->getName();
-
-            $orderInfo = [
-                'address' => [
-                    'firstname' => $customerData['shipping']['shippingAddress']['firstName'],
-                    'lastname' => $customerData['shipping']['shippingAddress']['lastName'],
-                    'street' => $customerData['shipping']['shippingAddress']['line1'],
-                    'city' => $customerData['shipping']['shippingAddress']['city'],
-                    'country_id' => $customerData['shipping']['shippingAddress']['country'],
-                    'postcode' => $customerData['shipping']['shippingAddress']['zipCode'],
-                    'telephone' => $customerData['shopperPhone'],
-                    'region_id' => $regionId ? $regionId : NULL,
-                    'region' => $regionName ? $regionName : $regionCode
-                ],
-            ];
-        }
-
         $quote = $this->quoteFactory->create()->load($quoteReservedId, 'reserved_order_id');
         $quote = $this->quoteRepository->get($quote->getId());
 
@@ -107,52 +86,69 @@ class Index extends Action implements CsrfAwareActionInterface
             $quote->setCustomerIsGuest(true);
         }
 
-        if (key_exists('shipping', $customerData)) {
-            $quote->getShippingAddress()->addData($orderInfo['address']);
-        }
-
-        $address = $quote->getShippingAddress();
-        $address->setCollectShippingRates(true);
-        $address->save();
         if (key_exists('discount', $customerData)) {
             $couponCode = $customerData['discount']['voucher'];
-            $quote->setCouponCode($couponCode)->collectTotals()->save();
+            $quote->setCouponCode($couponCode);
         }
-        $quote->save();
 
         $data = [];
 
         if (key_exists('shipping', $customerData)) {
-            $shippingMethods = [];
+            $customerShippingData = $customerData['shipping']['shippingAddress'];
+
+            $countryId = $customerShippingData['country'];
+            $regionCode = $customerShippingData['region'];
+            $region = $this->regionFactory->create()->loadByCode($regionCode, $countryId);
+
+            $orderInfo = [
+                'address' => [
+                    'firstname'  => $customerShippingData['firstName'],
+                    'lastname'   => $customerShippingData['lastName'],
+                    'street'     => $customerShippingData['line1'],
+                    'city'       => $customerShippingData['city'],
+                    'country_id' => $customerShippingData['country'],
+                    'postcode'   => $customerShippingData['zipCode'],
+                    'telephone'  => $customerData['shopperPhone'],
+                    'region_id'  => $region->getId() ?: NULL,
+                    'region'     => $region->getName() ?: $regionCode
+                ],
+            ];
+
+            $address = $quote->getShippingAddress();
+            $address->addData($orderInfo['address']);
+            $address->setCollectShippingRates(true);
             $address->collectShippingRates();
+            $address->save();
+
+            $shippingMethods = [];
+
             $shippingRates = $address->getGroupedAllShippingRates();
             foreach ($shippingRates as $code => $carrierRates) {
                 foreach ($carrierRates as $rate) {
                     $shippingMethods[] = [
-                        'price' => $rate->getPrice(),
-                        'name' => $this->getCarrierName($code),
-                        'countries' => [$customerData['shipping']['shippingAddress']['country']],
+                        'price'     => $rate->getPrice(),
+                        'name'      => $this->getCarrierName($code),
+                        'countries' => [$customerShippingData['country']],
                         'reference' => $rate->getCode()
                     ];
                 }
             }
             $data['shippingMethods'] = $shippingMethods;
         }
+
+        $quote->collectTotals()->save();
+
         //Get discount
         $totals = $this->cartTotalRepository->get($quote->getId());
         $discountAmount = $totals->getDiscountAmount();
         if ($discountAmount < 0) {
-            $totalNet = $quote->getBaseSubtotal() ? $quote->getBaseSubtotal() : 0;
-            $vat = $quote->getShippingAddress()->getBaseTaxAmount() ? $quote->getShippingAddress()->getBaseTaxAmount() : 0;
-            $total = $quote->getBaseGrandTotal() ? $quote->getBaseGrandTotal() : 0;
-
             $discountAmount = abs($discountAmount);
             $discount = ['amount' => $discountAmount];
             $data['discount'] = $discount;
             $data['price'] = [
-                'totalNet' => $totalNet,
-                'vat' => $vat,
-                'total' => $total
+                'totalNet'  => $quote->getBaseSubtotal() ?: 0,
+                'vat'       => $quote->getShippingAddress()->getBaseTaxAmount() ?: 0,
+                'total'     => $quote->getBaseGrandTotal() ?: 0
             ];
         }
 
