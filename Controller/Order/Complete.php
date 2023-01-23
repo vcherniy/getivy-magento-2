@@ -118,10 +118,12 @@ class Complete extends Action implements CsrfAwareActionInterface
                 ]
             ];
             $quote->getBillingAddress()->addData($billing['address']);
+        }
 
-            $quote->setCustomerFirstname($quote->getBillingAddress()->getFirstname());
-            $quote->setCustomerLastname($quote->getBillingAddress()->getLastname());
+        $quote->setCustomerFirstname($quote->getBillingAddress()->getFirstname());
+        $quote->setCustomerLastname($quote->getBillingAddress()->getLastname());
 
+        if (isset($customerData['shippingMethod']['reference'])) {
             $this->logger->debugApiAction($this, $quoteReservedId, 'Apply shipping method',
                 [$customerData['shippingMethod']['reference']]
             );
@@ -135,10 +137,6 @@ class Complete extends Action implements CsrfAwareActionInterface
             $quote = $this->quoteRepository->get($quote->getId());
             $quote->getPayment()->importData(['method' => 'ivy']);
             $quote->collectTotals()->save();
-        } else {
-            $quote->setCustomerFirstname($quote->getBillingAddress()->getFirstname());
-            $quote->setCustomerLastname($quote->getBillingAddress()->getLastname());
-            $quote->save();
         }
 
         $this->logger->debugApiAction($this, $quoteReservedId, 'Quote',
