@@ -18,7 +18,6 @@ use Magento\Framework\App\Request\InvalidRequestException;
 use Magento\Framework\Serialize\Serializer\Json;
 use Magento\Sales\Api\OrderManagementInterface;
 use Magento\Sales\Api\RefundInvoiceInterface;
-use Magento\Sales\Model\Order\Invoice;
 use Magento\Sales\Model\OrderFactory;
 
 class Index extends Action implements CsrfAwareActionInterface

@@ -101,9 +101,10 @@ class Complete extends Action implements CsrfAwareActionInterface
             $quote->getShippingAddress()->getData()
         );
 
-        $shippingAddress = $quote->getShippingAddress();
         if (!$quote->getBillingAddress()->getFirstname())
         {
+            $shippingAddress = $quote->getShippingAddress();
+
             $customerBillingData = $customerData['billingAddress'];
             $billing = [
                 'address' =>[
@@ -116,21 +117,29 @@ class Complete extends Action implements CsrfAwareActionInterface
                     'telephone'  => $shippingAddress->getTelephone()
                 ]
             ];
-            $shippingAddress->addData($billing['address']);
+            $quote->getBillingAddress()->addData($billing['address']);
+
+            $quote->setCustomerFirstname($quote->getBillingAddress()->getFirstname());
+            $quote->setCustomerLastname($quote->getBillingAddress()->getLastname());
+
+            $this->logger->debugApiAction($this, $quoteReservedId, 'Apply shipping method',
+                [$customerData['shippingMethod']['reference']]
+            );
+
+            $shippingAddress->setCollectShippingRates(true)
+                ->collectShippingRates()
+                ->setShippingMethod($customerData['shippingMethod']['reference'])
+                ->save();
+            $quote->setPaymentMethod('ivy');
+            $quote->save();
+            $quote = $this->quoteRepository->get($quote->getId());
+            $quote->getPayment()->importData(['method' => 'ivy']);
+            $quote->collectTotals()->save();
+        } else {
+            $quote->setCustomerFirstname($quote->getBillingAddress()->getFirstname());
+            $quote->setCustomerLastname($quote->getBillingAddress()->getLastname());
+            $quote->save();
         }
-
-        $quote->setCustomerFirstname($quote->getBillingAddress()->getFirstname());
-        $quote->setCustomerLastname($quote->getBillingAddress()->getLastname());
-        $this->quoteRepository->save($quote);
-
-        $shippingAddress->setCollectShippingRates(true)
-            ->setShippingMethod($customerData['shippingMethod']['reference'])
-            ->collectShippingRates();
-        $quote->setPaymentMethod('ivy');
-        $this->quoteRepository->save($quote);
-        $quote->getPayment()->importData(['method' => 'ivy']);
-        $quote->collectTotals();
-        $this->quoteRepository->save($quote);
 
         $this->logger->debugApiAction($this, $quoteReservedId, 'Quote',
             $quote->getData()
@@ -140,6 +149,10 @@ class Complete extends Action implements CsrfAwareActionInterface
         $ivyTotal = $customerData['price']['total'];
 
         if ($qouteGrandTotal != $ivyTotal) {
+            $this->logger->debugApiAction($this, $quoteReservedId, 'Incorrect totals',
+                ['magento' => $qouteGrandTotal, 'ivy' => $ivyTotal]
+            );
+
             // return 400 status in this callback will cancel order id on the Ivy Payment Processor side
             $this->errorResolver->forceReserveOrderId($quote);
             return $this->jsonFactory->create()->setHttpResponseCode(400)->setData([]);

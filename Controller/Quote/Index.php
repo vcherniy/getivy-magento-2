@@ -19,6 +19,7 @@ use Magento\Framework\App\Request\InvalidRequestException;
 use Magento\Framework\Controller\Result\JsonFactory;
 use Magento\Framework\Serialize\Serializer\Json;
 use Magento\Quote\Model\Cart\CartTotalRepository;
+use Magento\Quote\Model\Quote\Address\Rate;
 use Magento\Quote\Model\QuoteFactory;
 use Magento\Quote\Model\QuoteRepository;
 
@@ -124,6 +125,7 @@ class Index extends Action implements CsrfAwareActionInterface
 
             $shippingRates = $address->getGroupedAllShippingRates();
             foreach ($shippingRates as $code => $carrierRates) {
+                /** @var Rate $rate */
                 foreach ($carrierRates as $rate) {
                     $shippingMethods[] = [
                         'price'     => $rate->getPrice(),

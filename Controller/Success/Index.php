@@ -9,7 +9,6 @@ namespace Esparksinc\IvyPayment\Controller\Success;
 
 use Esparksinc\IvyPayment\Helper\Api as ApiHelper;
 use Esparksinc\IvyPayment\Helper\Invoice as InvoiceHelper;
-use Esparksinc\IvyPayment\Model\Config;
 use Esparksinc\IvyPayment\Model\IvyFactory;
 use Esparksinc\IvyPayment\Model\ErrorResolver;
 use Esparksinc\IvyPayment\Model\Logger;
@@ -18,7 +17,6 @@ use Magento\Checkout\Model\Type\Onepage;
 use Magento\Framework\App\Action\Action;
 use Magento\Framework\App\Action\Context;
 use Magento\Framework\Controller\Result\RedirectFactory;
-use Magento\Framework\Serialize\Serializer\Json;
 use Magento\Sales\Model\OrderFactory;
 
 class Index extends Action

@@ -12,16 +12,12 @@ use Esparksinc\IvyPayment\Model\Config;
 use Esparksinc\IvyPayment\Model\Logger;
 use Esparksinc\IvyPayment\Model\ErrorResolver;
 use Esparksinc\IvyPayment\Model\IvyFactory;
-use GuzzleHttp\Client;
-use GuzzleHttp\Exception\ClientException;
-use GuzzleHttp\Exception\ServerException;
 use Magento\Checkout\Model\Session;
 use Magento\Checkout\Model\Type\Onepage;
 use Magento\Framework\App\Action\Action;
 use Magento\Framework\App\Action\Context;
 use Magento\Framework\Controller\Result\JsonFactory;
 use Magento\Framework\Controller\Result\RedirectFactory;
-use Magento\Framework\Serialize\Serializer\Json;
 use Magento\Quote\Api\CartRepositoryInterface;
 use Magento\Quote\Model\Cart\CartTotalRepository;
 
@@ -32,7 +28,6 @@ class Index extends Action
     protected $checkoutSession;
     protected $quoteRepository;
     protected $config;
-    protected $json;
     protected $onePage;
     protected $ivy;
     protected $cartTotalRepository;
@@ -46,7 +41,6 @@ class Index extends Action
      * @param RedirectFactory $resultRedirectFactory
      * @param Session $checkoutSession
      * @param CartRepositoryInterface $quoteRepository
-     * @param Json $json
      * @param Config $config
      * @param Onepage $onePage
      * @param IvyFactory $ivy
@@ -61,7 +55,6 @@ class Index extends Action
         RedirectFactory         $resultRedirectFactory,
         Session                 $checkoutSession,
         CartRepositoryInterface $quoteRepository,
-        Json                    $json,
         Config                  $config,
         Onepage                 $onePage,
         IvyFactory              $ivy,
@@ -74,7 +67,6 @@ class Index extends Action
         $this->resultRedirectFactory = $resultRedirectFactory;
         $this->checkoutSession = $checkoutSession;
         $this->quoteRepository = $quoteRepository;
-        $this->json = $json;
         $this->config = $config;
         $this->onePage = $onePage;
         $this->ivy = $ivy;
