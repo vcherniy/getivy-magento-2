@@ -256,7 +256,7 @@ class Index extends Action
     }
 
     private function getPluginVersion(): string {
-        $composerJson = json_decode(file_get_contents(__DIR__ . '/../../../composer.json'), true);
-        return $composerJson['version'];
+        $composerJson = json_decode(file_get_contents(__DIR__ . '/../../composer.json'), true);
+        return 'm2-'.$composerJson['version'];
     }
 }
