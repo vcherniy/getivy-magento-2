@@ -43,7 +43,7 @@ class Index extends Action
         // Get success params from Ivy
         $magentoOrderId = $this->getRequest()->getParam('reference');
 
-        $this->logger->debugApiAction($this, $magentoOrderId, 'Got a fail');
+        $this->logger->debugRequest($this, $magentoOrderId);
 
         $order = $this->orderFactory->create()->loadByIncrementId($magentoOrderId);
         if($order->getId())

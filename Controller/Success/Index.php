@@ -73,6 +73,8 @@ class Index extends Action
         $magentoOrderId = $this->getRequest()->getParam('reference');
         $ivyOrderId = $this->getRequest()->getParam('order-id');
 
+        $this->logger->debugRequest($this, $magentoOrderId);
+
         $quote = $this->checkoutSession->getQuote();
 
         $data = [
@@ -96,6 +98,7 @@ class Index extends Action
         $this->invoiceHelper->createInvoice($orderdetails, $ivyOrderId);
 
         $this->logger->debugApiAction($this, $magentoOrderId, 'Order', $orderdetails->getData());
+
         $resultRedirect = $this->resultRedirectFactory->create();
         $resultRedirect->setPath('checkout/onepage/success');
         return $resultRedirect;

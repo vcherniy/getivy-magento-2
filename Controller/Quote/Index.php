@@ -77,7 +77,7 @@ class Index extends Action implements CsrfAwareActionInterface
         $quoteReservedId = $request->getParam('reference');
         $customerData = $this->json->unserialize((string)$request->getContent());
 
-        $this->logger->debugApiAction($this, $quoteReservedId, 'Got API customer data', $customerData);
+        $this->logger->debugRequest($this, $quoteReservedId);
 
         $quote = $this->quoteFactory->create()->load($quoteReservedId, 'reserved_order_id');
         $quote = $this->quoteRepository->get($quote->getId());
@@ -156,7 +156,7 @@ class Index extends Action implements CsrfAwareActionInterface
         }
 
         $this->logger->debugApiAction($this, $quoteReservedId, 'Quote', $quote->getData());
-        $this->logger->debugApiAction($this, $quoteReservedId, 'Sent data', $data);
+        $this->logger->debugApiAction($this, $quoteReservedId, 'Response', $data);
 
         $hash = hash_hmac(
             'sha256',

@@ -87,7 +87,7 @@ class Success extends Action
         $magentoOrderId = $this->getRequest()->getParam('reference');
         $ivyOrderId = $this->getRequest()->getParam('order-id');
 
-        $this->logger->debugApiAction($this, $magentoOrderId, 'Got success');
+        $this->logger->debugRequest($this, $magentoOrderId);
 
         // Save info in db
         $ivyModel = $this->ivy->create();

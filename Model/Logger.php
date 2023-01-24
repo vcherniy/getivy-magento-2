@@ -7,6 +7,7 @@ namespace Esparksinc\IvyPayment\Model;
 use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\Logger\Monolog;
 use Magento\Framework\Serialize\Serializer\Json;
+use Monolog\DateTimeImmutable;
 
 class Logger extends Monolog
 {
@@ -14,7 +15,6 @@ class Logger extends Monolog
     protected $scopeConfig;
     protected $json;
     protected $isEnabled = null;
-    protected $keptRequestForActions = [];
 
     public function __construct(
         ScopeConfigInterface $scopeConfig,
@@ -28,17 +28,14 @@ class Logger extends Monolog
         parent::__construct($name, $handlers, $processors);
     }
 
-    public function addRecord(
-        $level,
-        $message,
-        array $context = []
-    ): bool {
+    public function addRecord(int $level, string $message, array $context = [], DateTimeImmutable $datetime = null): bool
+    {
         if ($this->isEnabled === null) {
             $this->isEnabled = (bool) $this->scopeConfig->getValue(self::DEBUG_ENABLED_PATH);
         }
 
         if ($this->isEnabled) {
-            return parent::addRecord($level, $message, $context);
+            return parent::addRecord($level, $message, $context, $datetime);
         }
         return false;
     }
@@ -53,21 +50,22 @@ class Logger extends Monolog
         $request = $controller->getRequest();
         $actionId = $request->getControllerName() . '_' . $request->getActionName();
 
-        $allContextData = [
-            'context' => $context
-        ];
-
-        if (!in_array($actionId, $this->keptRequestForActions)) {
-            $allContextData['request'] = $this->getRequestData($request);
-            $this->keptRequestForActions[] = $actionId;
-        }
-
         $message = sprintf('#%s %s: %s',
             $orderId,
             $actionId,
             $message
         );
-        $this->debug($message, $allContextData);
+        $this->debug($message, $context);
+    }
+
+    public function debugRequest(
+        \Magento\Framework\App\Action\Action $controller,
+        string $orderId
+    ) {
+        /** @var \Magento\Framework\App\Request\Http $request */
+        $request = $controller->getRequest();
+        $requestData = $this->getRequestData($request);
+        $this->debugApiAction($controller, $orderId, 'Request', $requestData);
     }
 
     protected function getRequestData($request): array

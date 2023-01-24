@@ -89,7 +89,8 @@ class Complete extends Action implements CsrfAwareActionInterface
         $request = $this->getRequest();
         $quoteReservedId = $request->getParam('reference');
         $customerData = $this->json->unserialize((string)$request->getContent());
-        $this->logger->debugApiAction($this, $quoteReservedId, 'Got API customer data', $customerData);
+
+        $this->logger->debugRequest($this, $quoteReservedId);
 
         $frontendUrl = $this->storeManager->getStore()->getBaseUrl();
         $redirectUrl = $frontendUrl.'ivypayment/complete/success';
@@ -160,6 +161,8 @@ class Complete extends Action implements CsrfAwareActionInterface
         $data = [
             'redirectUrl' => $redirectUrl
         ];
+
+        $this->logger->debugApiAction($this, $quoteReservedId, 'Response', $data);
 
         $hash = hash_hmac(
             'sha256',

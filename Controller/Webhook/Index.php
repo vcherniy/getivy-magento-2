@@ -74,7 +74,7 @@ class Index extends Action implements CsrfAwareActionInterface
         $orderdetails = $this->order->create()->loadByIncrementId($magentoOrderId);
         $orderId = $orderdetails->getId();
 
-        $this->logger->debugApiAction($this, $magentoOrderId, 'Got API data', $arrData);
+        $this->logger->debugRequest($this, $magentoOrderId);
         $this->logger->debugApiAction($this, $magentoOrderId, 'Order', $orderdetails->getData());
 
         if($arrData['type'] === 'order_updated' || $arrData['type'] === 'order_created')

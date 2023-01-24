@@ -89,6 +89,8 @@ class Index extends Action
 
         $orderId = $quote->getReservedOrderId();
 
+        $this->logger->debugRequest($this, $orderId);
+
         if($express) {
             $quote->getShippingAddress()->setShippingMethod('');
             $quote->getShippingAddress()->setCollectShippingRates(true);
