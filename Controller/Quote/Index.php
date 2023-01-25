@@ -22,6 +22,7 @@ use Magento\Quote\Model\Cart\CartTotalRepository;
 use Magento\Quote\Model\Quote\Address\Rate;
 use Magento\Quote\Model\QuoteFactory;
 use Magento\Quote\Model\QuoteRepository;
+use Magento\Quote\Model\ShippingMethodManagement;
 
 class Index extends Action implements CsrfAwareActionInterface
 {
@@ -34,6 +35,7 @@ class Index extends Action implements CsrfAwareActionInterface
     protected $regionFactory;
     protected $cartTotalRepository;
     protected $logger;
+    protected $shippingMethodManagement;
 
     /**
      * @param Context $context
@@ -46,18 +48,20 @@ class Index extends Action implements CsrfAwareActionInterface
      * @param RegionFactory $regionFactory
      * @param CartTotalRepository $cartTotalRepository
      * @param Logger $logger
+     * @param ShippingMethodManagement $shippingMethodManagement
      */
     public function __construct(
-        Context              $context,
-        Config               $config,
-        Json                 $json,
-        JsonFactory          $jsonFactory,
-        ScopeConfigInterface $scopeConfig,
-        QuoteFactory         $quoteFactory,
-        QuoteRepository      $quoteRepository,
-        RegionFactory        $regionFactory,
-        CartTotalRepository  $cartTotalRepository,
-        Logger               $logger
+        Context                  $context,
+        Config                   $config,
+        Json                     $json,
+        JsonFactory              $jsonFactory,
+        ScopeConfigInterface     $scopeConfig,
+        QuoteFactory             $quoteFactory,
+        QuoteRepository          $quoteRepository,
+        RegionFactory            $regionFactory,
+        CartTotalRepository      $cartTotalRepository,
+        Logger                   $logger,
+        ShippingMethodManagement $shippingMethodManagement
     ) {
         $this->config = $config;
         $this->json = $json;
@@ -68,6 +72,7 @@ class Index extends Action implements CsrfAwareActionInterface
         $this->regionFactory = $regionFactory;
         $this->cartTotalRepository = $cartTotalRepository;
         $this->logger = $logger;
+        $this->shippingMethodManagement = $shippingMethodManagement;
         parent::__construct($context);
     }
 
@@ -123,18 +128,29 @@ class Index extends Action implements CsrfAwareActionInterface
 
             $shippingMethods = [];
 
-            $shippingRates = $address->getGroupedAllShippingRates();
-            foreach ($shippingRates as $code => $carrierRates) {
-                /** @var Rate $rate */
-                foreach ($carrierRates as $rate) {
-                    $shippingMethods[] = [
-                        'price'     => $rate->getPrice(),
-                        'name'      => $this->getCarrierName($code),
-                        'countries' => [$customerShippingData['country']],
-                        'reference' => $rate->getCode()
-                    ];
-                }
+            $estimatedMethods = $this->shippingMethodManagement->estimateByExtendedAddress($quote->getId(), $address);
+            /** @var \Magento\Quote\Model\Cart\ShippingMethod $method */
+            foreach ($estimatedMethods as $method) {
+                $code = $method->getCarrierCode() . '_' . $method->getMethodCode();
+                $shippingMethods[] = [
+                    'price'     => $method->getPriceInclTax(),
+                    'name'      => $this->getCarrierName($code),
+                    'countries' => [$customerShippingData['country']],
+                    'reference' => $code
+                ];
             }
+//            $shippingRates = $address->getGroupedAllShippingRates();
+//            foreach ($shippingRates as $code => $carrierRates) {
+//                /** @var Rate $rate */
+//                foreach ($carrierRates as $rate) {
+//                    $shippingMethods[] = [
+//                        'price'     => $rate->getPrice(),
+//                        'name'      => $this->getCarrierName($code),
+//                        'countries' => [$customerShippingData['country']],
+//                        'reference' => $rate->getCode()
+//                    ];
+//                }
+//            }
             $data['shippingMethods'] = $shippingMethods;
         }
 
