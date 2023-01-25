@@ -98,14 +98,9 @@ class Complete extends Action implements CsrfAwareActionInterface
         $quote = $this->quoteFactory->create()->load($quoteReservedId,'reserved_order_id');
         $quote = $this->quoteRepository->get($quote->getId());
 
-        $this->logger->debugApiAction($this, $quoteReservedId, 'Quote shipping address',
-            $quote->getShippingAddress()->getData()
-        );
-
+        $shippingAddress = $quote->getShippingAddress();
         if (!$quote->getBillingAddress()->getFirstname())
         {
-            $shippingAddress = $quote->getShippingAddress();
-
             $customerBillingData = $customerData['billingAddress'];
             $billing = [
                 'address' =>[
@@ -129,19 +124,24 @@ class Complete extends Action implements CsrfAwareActionInterface
                 [$customerData['shippingMethod']['reference']]
             );
 
-            $shippingAddress->setCollectShippingRates(true)
-                ->collectShippingRates()
-                ->setShippingMethod($customerData['shippingMethod']['reference'])
-                ->save();
-            $quote->setPaymentMethod('ivy');
-            $quote->save();
-            $quote = $this->quoteRepository->get($quote->getId());
-            $quote->getPayment()->importData(['method' => 'ivy']);
-            $quote->collectTotals()->save();
+            $shippingAddress->setShippingMethod($customerData['shippingMethod']['reference']);
+            $quote->getPayment()->setMethod('ivy');
         }
+
+        $shippingAddress
+            ->setCollectShippingRates(true)
+            ->collectShippingRates()
+            ->save();
+
+        $quote->collectTotals()->save();
+        $quote = $this->quoteRepository->get($quote->getId());
 
         $this->logger->debugApiAction($this, $quoteReservedId, 'Quote',
             $quote->getData()
+        );
+
+        $this->logger->debugApiAction($this, $quoteReservedId, 'Shipping address',
+            $shippingAddress->getData()
         );
 
         $qouteGrandTotal = $quote->getGrandTotal();
