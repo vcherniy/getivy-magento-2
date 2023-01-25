@@ -136,13 +136,8 @@ class Complete extends Action implements CsrfAwareActionInterface
         $quote->collectTotals()->save();
         $quote = $this->quoteRepository->get($quote->getId());
 
-        $this->logger->debugApiAction($this, $quoteReservedId, 'Quote',
-            $quote->getData()
-        );
-
-        $this->logger->debugApiAction($this, $quoteReservedId, 'Shipping address',
-            $shippingAddress->getData()
-        );
+        $this->logger->debugApiAction($this, $quoteReservedId, 'Quote', $quote->getData());
+        $this->logger->debugApiAction($this, $quoteReservedId, 'Shipping address', $shippingAddress->getData());
 
         $qouteGrandTotal = $quote->getGrandTotal();
         $ivyTotal = $customerData['price']['total'];
