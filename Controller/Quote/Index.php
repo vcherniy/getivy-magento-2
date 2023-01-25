@@ -131,12 +131,12 @@ class Index extends Action implements CsrfAwareActionInterface
             $estimatedMethods = $this->shippingMethodManagement->estimateByExtendedAddress($quote->getId(), $address);
             /** @var \Magento\Quote\Model\Cart\ShippingMethod $method */
             foreach ($estimatedMethods as $method) {
-                $code = $method->getCarrierCode() . '_' . $method->getMethodCode();
+                $code = $method->getCarrierCode();
                 $shippingMethods[] = [
                     'price'     => $method->getPriceInclTax(),
                     'name'      => $this->getCarrierName($code),
                     'countries' => [$customerShippingData['country']],
-                    'reference' => $code
+                    'reference' => $method->getCarrierCode() . '_' . $method->getMethodCode()
                 ];
             }
 //            $shippingRates = $address->getGroupedAllShippingRates();
