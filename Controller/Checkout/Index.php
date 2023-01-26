@@ -78,6 +78,7 @@ class Index extends Action
         $ivyModel = $this->ivy->create();
 
         $quote = $this->checkoutSession->getQuote();
+        
         if(!$quote->getReservedOrderId())
         {
             $quote->reserveOrderId();
@@ -85,31 +86,18 @@ class Index extends Action
         }
 
         $orderId = $quote->getReservedOrderId();
-
-        if($express) {
-            $quote->getShippingAddress()->setShippingMethod(null);
-            $quote->getShippingAddress()->setCollectShippingRates(true);
-            $quote->getShippingAddress()->collectShippingRates();
-            $quote->getShippingAddress()->save();
-        }
-
         $this->quoteRepository->save($quote);
 
-        //Price
         $price = $this->getPrice($quote, $express);
 
-        // Line Items
         $ivyLineItems = $this->getLineItem($quote);
 
-        // Shipping Methods
         $shippingMethods = $quote->isVirtual() ? [] : $this->getShippingMethod($quote);
 
-        //billingAddress
         $billingAddress = $this->getBillingAddress($quote);
 
         $mcc = $this->config->getMcc();
 
-        // get plugin version from composer.json and set to field plugin
         $plugin = $this->getPluginVersion();
 
         if($express) {
@@ -160,11 +148,7 @@ class Index extends Action
         );
 
         if ($response->getStatusCode() === 200) {
-            //Order Place if not express
-            // if(!$express)
-            // $this->onePage->saveOrder();
 
-            // Redirect to Ivy payment
             $arrData = $this->json->unserialize((string)$response->getBody());
 
             $ivyModel->setIvyCheckoutSession($arrData['id']);
