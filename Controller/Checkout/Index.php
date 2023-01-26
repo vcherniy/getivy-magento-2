@@ -211,17 +211,19 @@ class Index extends Action
 
     private function getPrice($quote, $express)
     {
-        $shippingTotal = $quote->getShippingAmount() ? $quote->getShippingAmount() : 0;
-        $shippingVat = $quote->getBaseShippingTaxAmount() ? $quote->getBaseShippingTaxAmount() : 0;
+        $shippingTotal = $quote->getShippingAddress() ? $quote->getShippingAddress()->getShippingAmount() : 0;
+        $shippingVat = $quote->getShippingAddress() ? $quote->getShippingAddress()->getBaseShippingTaxAmount() : 0;
+
         $shippingNet = $shippingTotal - $shippingVat;
 
-        $vat = $quote->getBaseTaxAmount() ? $quote->getBaseTaxAmount() : 0;
-        $total = $quote->getBaseGrandTotal() ? $quote->getBaseGrandTotal() : 0;
+        $vat = $quote->getShippingAddress() ? $quote->getShippingAddress()->getBaseTaxAmount() : 0;
+        $total = $quote->getShippingAddress() ? $quote->getShippingAddress()->getBaseGrandTotal() : 0;
         $currency = $quote->getBaseCurrencyCode();
         $totalNet = $total - $vat;
 
         if ($express) {
             $total -= $shippingTotal;
+            $total -= $shippingVat;
             $vat -= $shippingVat;
             $totalNet -= $shippingNet;
             $shippingTotal = 0;
