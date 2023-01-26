@@ -96,7 +96,7 @@ class Index extends Action
         $this->quoteRepository->save($quote);
 
         //Price
-        $price = $this->getPrice($quote);
+        $price = $this->getPrice($quote, $express);
 
         // Line Items
         $ivyLineItems = $this->getLineItem($quote);
@@ -209,19 +209,30 @@ class Index extends Action
         return $ivyLineItems;
     }
 
-    private function getPrice($quote)
+    private function getPrice($quote, $express)
     {
+        $shippingTotal = $quote->getShippingAmount() ? $quote->getShippingAmount() : 0;
+        $shippingVat = $quote->getBaseShippingTaxAmount() ? $quote->getBaseShippingTaxAmount() : 0;
+        $shippingNet = $shippingTotal - $shippingVat;
 
         $vat = $quote->getBaseTaxAmount() ? $quote->getBaseTaxAmount() : 0;
-        $shippingAmount = $quote->getBaseShippingAmount() ? $quote->getBaseShippingAmount() : 0;
         $total = $quote->getBaseGrandTotal() ? $quote->getBaseGrandTotal() : 0;
         $currency = $quote->getBaseCurrencyCode();
         $totalNet = $total - $vat;
 
+        if ($express) {
+            $total -= $shippingTotal;
+            $vat -= $shippingVat;
+            $totalNet -= $shippingNet;
+            $shippingTotal = 0;
+            $shippingVat = 0;
+            $shippingNet = 0;
+        } 
+
         return [
             'totalNet' => $totalNet,
             'vat' => $vat,
-            'shipping' => $shippingAmount,
+            'shipping' => $shippingTotal,
             'total' => $total,
             'currency' => $currency,
         ];
