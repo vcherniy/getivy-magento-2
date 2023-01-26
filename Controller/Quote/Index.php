@@ -139,18 +139,6 @@ class Index extends Action implements CsrfAwareActionInterface
                     'reference' => $method->getCarrierCode() . '_' . $method->getMethodCode()
                 ];
             }
-//            $shippingRates = $address->getGroupedAllShippingRates();
-//            foreach ($shippingRates as $code => $carrierRates) {
-//                /** @var Rate $rate */
-//                foreach ($carrierRates as $rate) {
-//                    $shippingMethods[] = [
-//                        'price'     => $rate->getPrice(),
-//                        'name'      => $this->getCarrierName($code),
-//                        'countries' => [$customerShippingData['country']],
-//                        'reference' => $rate->getCode()
-//                    ];
-//                }
-//            }
             $data['shippingMethods'] = $shippingMethods;
         }
 
