@@ -82,6 +82,7 @@ class Index extends Action
         $ivyModel = $this->ivy->create();
 
         $quote = $this->checkoutSession->getQuote();
+
         if (!$quote->getReservedOrderId()) {
             $quote->reserveOrderId();
             $ivyModel->setMagentoOrderId($quote->getReservedOrderId());
@@ -89,33 +90,20 @@ class Index extends Action
 
         $orderId = $quote->getReservedOrderId();
 
-        $this->logger->debugRequest($this, $orderId);
-
-        if($express) {
-            $quote->getShippingAddress()->setShippingMethod('');
-            $quote->getShippingAddress()->setCollectShippingRates(true);
-            $quote->getShippingAddress()->collectShippingRates();
-            $quote->getShippingAddress()->save();
-        }
-
         $quote->collectTotals();
+        
         $this->quoteRepository->save($quote);
 
-        //Price
-        $price = $this->getPrice($quote);
+        $price = $this->getPrice($quote, $express);
 
-        // Line Items
         $ivyLineItems = $this->getLineItem($quote);
 
-        // Shipping Methods
         $shippingMethods = $quote->isVirtual() ? [] : $this->getShippingMethod($quote);
 
-        //billingAddress
         $billingAddress = $this->getBillingAddress($quote);
 
         $mcc = $this->config->getMcc();
 
-        // get plugin version from composer.json and set to field plugin
         $plugin = $this->getPluginVersion();
 
         if($express) {
@@ -151,11 +139,7 @@ class Index extends Action
         );
 
         if ($responseData) {
-            //Order Place if not express
-            // if(!$express)
-            // $this->onePage->saveOrder();
 
-            // Redirect to Ivy payment
             $ivyModel->setIvyCheckoutSession($responseData['id']);
             $ivyModel->setIvyRedirectUrl($responseData['redirectUrl']);
             $ivyModel->save();
@@ -193,17 +177,34 @@ class Index extends Action
         return $ivyLineItems;
     }
 
-    private function getPrice($quote)
+    private function getPrice($quote, $express)
     {
-        $vat = $quote->getBaseTaxAmount() ?: 0;
-        $total = $quote->getBaseGrandTotal() ?: 0;
+        $shippingTotal = $quote->getShippingAddress() ? $quote->getShippingAddress()->getShippingAmount() : 0;
+        $shippingVat = $quote->getShippingAddress() ? $quote->getShippingAddress()->getBaseShippingTaxAmount() : 0;
+        $shippingNet = $shippingTotal - $shippingVat;
+
+        $total = $quote->getShippingAddress() ? $quote->getShippingAddress()->getBaseGrandTotal() : 0;
+        $vat = $quote->getShippingAddress() ? $quote->getShippingAddress()->getBaseTaxAmount() : 0;
+        $totalNet = $total - $vat;
+        
+        $currency = $quote->getBaseCurrencyCode();
+
+        if ($express) {
+            $total -= $shippingTotal;
+            $total -= $shippingVat;
+            $vat -= $shippingVat;
+            $totalNet -= $shippingNet;
+            $shippingTotal = 0;
+            $shippingVat = 0;
+            $shippingNet = 0;
+        }
 
         return [
-            'totalNet'  => $total - $vat,
-            'vat'       => $vat,
-            'shipping'  => $quote->getBaseShippingAmount() ?: 0,
-            'total'     => $total,
-            'currency'  => $quote->getBaseCurrencyCode(),
+            'totalNet' => $totalNet,
+            'vat' => $vat,
+            'shipping' => $shippingTotal,
+            'total' => $total,
+            'currency' => $currency,
         ];
     }
 
