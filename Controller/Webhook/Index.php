@@ -79,9 +79,7 @@ class Index extends Action implements CsrfAwareActionInterface
 
         if($arrData['type'] === 'order_updated' || $arrData['type'] === 'order_created')
         {
-            if ($arrData['payload']['paymentStatus'] === 'failed'
-                || $arrData['payload']['paymentStatus'] === 'canceled'
-                || $arrData['payload']['status'] === 'failed'
+            if ($arrData['payload']['status'] === 'failed'
                 || $arrData['payload']['status'] === 'canceled')
             {
                 if ($orderdetails->canInvoice()) {
