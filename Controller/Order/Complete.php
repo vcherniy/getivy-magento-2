@@ -91,7 +91,16 @@ class Complete extends Action implements CsrfAwareActionInterface
         $redirectUrl = $frontendUrl.'ivypayment/complete/success';
 
         $quoteReservedId = $request->getParam('reference');
-        $quote = $this->quoteFactory->create()->load($quoteReservedId,'reserved_order_id');
+
+        $searchCriteria = $this->criteriaBuilder->addFilter('reserved_order_id', $quoteReservedId)->create();
+        $quotes = $this->quoteRepository->getList($searchCriteria)->getItems();
+
+        if (count($quotes) === 1) {
+            $quote = array_values($quotes)[0];
+        } else {
+            $quote = $this->quoteFactory->create()->load($quoteReservedId, 'reserved_order_id');
+        }
+
         $quote = $this->quoteRepository->get($quote->getId());
 
         $this->debug->log(
