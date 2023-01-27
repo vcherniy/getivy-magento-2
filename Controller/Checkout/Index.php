@@ -86,17 +86,10 @@ class Index extends Action
 
         $orderId = $quote->getReservedOrderId();
 
-        if($express) {
-            $quote->getShippingAddress()->setShippingMethod(null);
-            $quote->getShippingAddress()->setCollectShippingRates(true);
-            $quote->getShippingAddress()->collectShippingRates();
-            $quote->getShippingAddress()->save();
-        }
-
         $this->quoteRepository->save($quote);
 
         //Price
-        $price = $this->getPrice($quote);
+        $price = $this->getPrice($quote, $express);
 
         // Line Items
         $ivyLineItems = $this->getLineItem($quote);
@@ -209,19 +202,32 @@ class Index extends Action
         return $ivyLineItems;
     }
 
-    private function getPrice($quote)
+    private function getPrice($quote, $express = false)
     {
+        $shippingTotal = $quote->getShippingAddress() ? $quote->getShippingAddress()->getShippingAmount() : 0;
+        $shippingVat = $quote->getShippingAddress() ? $quote->getShippingAddress()->getBaseShippingTaxAmount() : 0;
+        $shippingNet = $shippingTotal - $shippingVat;
 
-        $vat = $quote->getBaseTaxAmount() ? $quote->getBaseTaxAmount() : 0;
-        $shippingAmount = $quote->getBaseShippingAmount() ? $quote->getBaseShippingAmount() : 0;
-        $total = $quote->getBaseGrandTotal() ? $quote->getBaseGrandTotal() : 0;
-        $currency = $quote->getBaseCurrencyCode();
+        $total = $quote->getShippingAddress() ? $quote->getShippingAddress()->getBaseGrandTotal() : 0;
+        $vat = $quote->getShippingAddress() ? $quote->getShippingAddress()->getBaseTaxAmount() : 0;
         $totalNet = $total - $vat;
+
+        $currency = $quote->getBaseCurrencyCode();
+
+        if ($express) {
+            $total -= $shippingTotal;
+            $total -= $shippingVat;
+            $vat -= $shippingVat;
+            $totalNet -= $shippingNet;
+            $shippingTotal = 0;
+            $shippingVat = 0;
+            $shippingNet = 0;
+        }
 
         return [
             'totalNet' => $totalNet,
             'vat' => $vat,
-            'shipping' => $shippingAmount,
+            'shipping' => $shippingTotal,
             'total' => $total,
             'currency' => $currency,
         ];
