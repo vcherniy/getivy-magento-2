@@ -181,11 +181,12 @@ class Index extends Action
 
         $discountAmount = $this->discountHelper->getDiscountAmount($quote);
         if ($discountAmount !== 0) {
+            $discountAmount = -1 * abs($discountAmount);
             $ivyLineItems[] = [
                 'name'      => 'Discount',
-                'singleNet' => abs($discountAmount),
+                'singleNet' => $discountAmount,
                 'singleVat' => 0,
-                'amount'    => abs($discountAmount)
+                'amount'    => $discountAmount
             ];
         }
 
