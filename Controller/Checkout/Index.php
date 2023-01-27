@@ -107,7 +107,7 @@ class Index extends Action
         $this->quoteRepository->save($quote);
 
         //Price
-        $price = $this->getPrice($quote);
+        $price = $this->getPrice($quote, $express);
 
         // Line Items
         $ivyLineItems = $this->getLineItems($quote);
@@ -198,24 +198,43 @@ class Index extends Action
         return $ivyLineItems;
     }
 
-    private function getPrice($quote)
+    private function getPrice($quote, $express = false)
     {
         $totals = $this->cartTotalRepository->get($quote->getId());
+
+        $shippingTotal = $totals->getBaseShippingInclTax();
+        $shippingVat = $totals->getBaseShippingTaxAmount();
+        $shippingNet = $totals->getBaseShippingAmount();
+
+        $total = $totals->getBaseGrandTotal();
+        $vat = $totals->getBaseTaxAmount();
+        $totalNet = $total - $vat;
+
+        $currency = $quote->getBaseCurrencyCode();
+
+        if ($express) {
+            $total -= $shippingTotal;
+            $vat -= $shippingVat;
+            $totalNet -= $shippingNet;
+            $shippingTotal = 0;
+        }
+
         return [
-            'totalNet'  => $totals->getBaseSubtotal(),
-            'vat'       => $totals->getBaseTaxAmount(),
-            'shipping'  => $totals->getBaseShippingAmount(),
-            'total'     => $totals->getBaseGrandTotal(),
-            'currency'  => $quote->getBaseCurrencyCode(),
+            'totalNet' => $totalNet,
+            'vat' => $vat,
+            'shipping' => $shippingTotal,
+            'total' => $total,
+            'currency' => $currency,
         ];
     }
 
     private function getShippingMethod($quote): array
     {
+        $totals = $this->cartTotalRepository->get($quote->getId());
         $countryId = $quote->getShippingAddress()->getCountryId();
         $shippingMethod = array();
         $shippingLine = [
-            'price'     => $quote->getBaseShippingAmount() ?: 0,
+            'price'     => $totals->getBaseShippingAmount(),
             'name'      => $quote->getShippingAddress()->getShippingMethod(),
             'countries' => [$countryId]
         ];
