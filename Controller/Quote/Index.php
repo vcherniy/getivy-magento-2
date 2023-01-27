@@ -173,7 +173,7 @@ class Index extends Action implements CsrfAwareActionInterface
 
         //Get discount
         $discountAmount = $this->discountHelper->getDiscountAmount($quote);
-        if ($discountAmount !== 0) {
+        if ($discountAmount !== 0.0) {
             $data['discount'] = [
                 'amount'    => abs($discountAmount)
             ];

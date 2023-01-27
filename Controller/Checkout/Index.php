@@ -185,7 +185,7 @@ class Index extends Action
         }
 
         $discountAmount = $this->discountHelper->getDiscountAmount($quote);
-        if ($discountAmount !== 0) {
+        if ($discountAmount !== 0.0) {
             $discountAmount = -1 * abs($discountAmount);
             $ivyLineItems[] = [
                 'name'      => 'Discount',
