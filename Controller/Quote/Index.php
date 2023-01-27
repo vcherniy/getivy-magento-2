@@ -20,6 +20,7 @@ use Magento\Framework\Controller\Result\JsonFactory;
 use Magento\Framework\Exception\CouldNotSaveException;
 use Magento\Framework\Module\Manager as ModuleManager;
 use Magento\Framework\Serialize\Serializer\Json;
+use Magento\Quote\Api\Data\CartInterface;
 use Magento\Quote\Model\Cart\CartTotalRepository;
 use Magento\Quote\Model\QuoteFactory;
 use Magento\Quote\Model\QuoteRepository;
@@ -99,28 +100,7 @@ class Index extends Action implements CsrfAwareActionInterface
 
         if (key_exists('discount', $customerData)) {
             $couponCode = $customerData['discount']['voucher'];
-            $couponApplied = false;
-
-            /*
-             * The Amasty Gift Card module implements its own logic that is not compatible with the coupons' core logic.
-             * We need work with the module directly
-             */
-            if ($this->moduleManager->isEnabled('Amasty_GiftCardAccount')) {
-                $giftCardAccountManagement = $this->_objectManager->create(
-                    'Amasty\GiftCardAccount\Model\GiftCardAccount\GiftCardAccountManagement'
-                );
-
-                try {
-                    $giftCardAccountManagement->applyGiftCardToCart($quote->getId(), $couponCode);
-                    $couponApplied = true;
-                } catch (CouldNotSaveException $exception) {
-                    // do nothing
-                }
-            }
-
-            if (!$couponApplied) {
-                $quote->setCouponCode($couponCode);
-            }
+            $this->applyCouponCode($quote, $couponCode);
         }
 
         $data = [];
@@ -180,8 +160,7 @@ class Index extends Action implements CsrfAwareActionInterface
         $this->quoteRepository->save($quote);
 
         //Get discount
-        $totals = $this->cartTotalRepository->get($quote->getId());
-        $discountAmount = $totals->getDiscountAmount();
+        $discountAmount = $this->getDiscountAmount($quote);
         if ($discountAmount !== 0) {
             $data['discount'] = [
                 'amount'    => abs($discountAmount)
@@ -202,6 +181,45 @@ class Index extends Action implements CsrfAwareActionInterface
             $this->config->getWebhookSecret());
         header('X-Ivy-Signature: ' . $hash);
         return $this->jsonFactory->create()->setData($data);
+    }
+
+    protected function applyCouponCode(CartInterface $quote, string $couponCode)
+    {
+        $couponApplied = false;
+
+        /*
+         * The Amasty Gift Card module implements its own logic that is not compatible with the coupons' core logic.
+         * We need work with the module directly
+         */
+        if ($this->moduleManager->isEnabled('Amasty_GiftCardAccount')) {
+            $giftCardAccountManagement = $this->_objectManager->create(
+                'Amasty\GiftCardAccount\Model\GiftCardAccount\GiftCardAccountManagement'
+            );
+
+            try {
+                $giftCardAccountManagement->applyGiftCardToCart($quote->getId(), $couponCode);
+                $couponApplied = true;
+            } catch (CouldNotSaveException $exception) {
+                // do nothing
+            }
+        }
+
+        if (!$couponApplied) {
+            $quote->setCouponCode($couponCode);
+        }
+    }
+
+    protected function getDiscountAmount(CartInterface $quote)
+    {
+        if ($this->moduleManager->isEnabled('Amasty_GiftCardAccount')) {
+            $discountAmount = $quote->getExtensionAttributes()
+                ->getAmGiftcardQuote()
+                ->getBaseGiftAmountUsed();
+        } else {
+            $totals = $this->cartTotalRepository->get($quote->getId());
+            $discountAmount = $totals->getDiscountAmount();
+        }
+        return $discountAmount;
     }
 
     public function createCsrfValidationException(RequestInterface $request): ?InvalidRequestException
