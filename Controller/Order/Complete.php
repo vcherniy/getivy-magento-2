@@ -126,7 +126,6 @@ class Complete extends Action implements CsrfAwareActionInterface
                 );
 
                 $shippingAddress->setShippingMethod($customerData['shippingMethod']['reference']);
-                $quote->getPayment()->setMethod('ivy');
             }
 
             $shippingAddress
@@ -135,6 +134,7 @@ class Complete extends Action implements CsrfAwareActionInterface
                 ->save();
         }
 
+        $quote->getPayment()->setMethod('ivy');
         $quote->collectTotals()->save();
         $quote = $this->quoteRepository->get($quote->getId());
 
