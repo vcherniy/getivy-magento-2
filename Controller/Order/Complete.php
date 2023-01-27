@@ -24,6 +24,7 @@ use Magento\Quote\Model\Cart\CartTotalRepository;
 use Magento\Quote\Model\QuoteFactory;
 use Magento\Quote\Model\QuoteRepository;
 use Magento\Store\Model\StoreManagerInterface;
+use Magento\Framework\Api\SearchCriteriaBuilder;
 
 class Complete extends Action implements CsrfAwareActionInterface
 {
@@ -37,6 +38,7 @@ class Complete extends Action implements CsrfAwareActionInterface
     protected $cartTotalRepository;
     protected $quoteManagement;
     protected $storeManager;
+    protected $searchCriteriaBuilder;
     protected $logger;
     protected $errorResolver;
 
@@ -67,10 +69,12 @@ class Complete extends Action implements CsrfAwareActionInterface
         CartTotalRepository     $cartTotalRepository,
         CartManagementInterface $quoteManagement,
         StoreManagerInterface   $storeManager,
+        SearchCriteriaBuilder   $searchCriteriaBuilder,
         Logger                  $logger,
         ErrorResolver           $errorResolver
     ) {
         $this->config = $config;
+        $this->searchCriteriaBuilder = $searchCriteriaBuilder;
         $this->json = $json;
         $this->jsonFactory = $jsonFactory;
         $this->scopeConfig = $scopeConfig;
@@ -95,7 +99,17 @@ class Complete extends Action implements CsrfAwareActionInterface
         $frontendUrl = $this->storeManager->getStore()->getBaseUrl();
         $redirectUrl = $frontendUrl.'ivypayment/complete/success';
 
-        $quote = $this->quoteFactory->create()->load($quoteReservedId,'reserved_order_id');
+        $quoteReservedId = $request->getParam('reference');
+
+        $searchCriteria = $this->searchCriteriaBuilder->addFilter('reserved_order_id', $quoteReservedId)->create();
+        $quotes = $this->quoteRepository->getList($searchCriteria)->getItems();
+
+        if (count($quotes) === 1) {
+            $quote = array_values($quotes)[0];
+        } else {
+            $quote = $this->quoteFactory->create()->load($quoteReservedId, 'reserved_order_id');
+        }
+
         $quote = $this->quoteRepository->get($quote->getId());
 
         $shippingAddress = $quote->getShippingAddress();
@@ -187,7 +201,7 @@ class Complete extends Action implements CsrfAwareActionInterface
 
     private function isValidRequest(RequestInterface $request)
     {
-         return true;
+        // return true;
         $hash = hash_hmac(
             'sha256',
             $request->getContent(),

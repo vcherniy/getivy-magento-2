@@ -23,6 +23,7 @@ use Magento\Quote\Model\QuoteFactory;
 use Magento\Quote\Model\Cart\CartTotalRepository;
 use Magento\Quote\Model\QuoteRepository;
 use Magento\Quote\Model\ShippingMethodManagement;
+use Magento\Framework\Api\SearchCriteriaBuilder;
 
 class Index extends Action implements CsrfAwareActionInterface
 {
@@ -34,6 +35,7 @@ class Index extends Action implements CsrfAwareActionInterface
     protected $quoteRepository;
     protected $regionFactory;
     protected $cartTotalRepository;
+    protected $searchCriteriaBuilder;
     protected $logger;
     protected $shippingMethodManagement;
     protected $discountHelper;
@@ -48,6 +50,7 @@ class Index extends Action implements CsrfAwareActionInterface
      * @param QuoteRepository $quoteRepository
      * @param RegionFactory $regionFactory
      * @param CartTotalRepository $cartTotalRepository
+     * @param SearchCriteriaBuilder $searchCriteriaBuilder
      * @param Logger $logger
      * @param ShippingMethodManagement $shippingMethodManagement
      * @param DiscountHelper $discountHelper
@@ -62,6 +65,7 @@ class Index extends Action implements CsrfAwareActionInterface
         QuoteRepository          $quoteRepository,
         RegionFactory            $regionFactory,
         CartTotalRepository      $cartTotalRepository,
+        SearchCriteriaBuilder $searchCriteriaBuilder,
         Logger                   $logger,
         ShippingMethodManagement $shippingMethodManagement,
         DiscountHelper           $discountHelper
@@ -74,6 +78,7 @@ class Index extends Action implements CsrfAwareActionInterface
         $this->quoteRepository = $quoteRepository;
         $this->regionFactory = $regionFactory;
         $this->cartTotalRepository = $cartTotalRepository;
+        $this->searchCriteriaBuilder = $searchCriteriaBuilder;
         $this->logger = $logger;
         $this->shippingMethodManagement = $shippingMethodManagement;
         $this->discountHelper = $discountHelper;
@@ -88,7 +93,15 @@ class Index extends Action implements CsrfAwareActionInterface
 
         $this->logger->debugRequest($this, $quoteReservedId);
 
-        $quote = $this->quoteFactory->create()->load($quoteReservedId, 'reserved_order_id');
+        $searchCriteria = $this->searchCriteriaBuilder->addFilter('reserved_order_id', $quoteReservedId)->create();
+        $quotes = $this->quoteRepository->getList($searchCriteria)->getItems();
+
+        if (count($quotes) === 1) {
+            $quote = array_values($quotes)[0];
+        } else {
+            $quote = $this->quoteFactory->create()->load($quoteReservedId, 'reserved_order_id');
+        }
+
         $quote = $this->quoteRepository->get($quote->getId());
 
         if (!$quote->getCustomerId()) {
@@ -197,7 +210,7 @@ class Index extends Action implements CsrfAwareActionInterface
 
     private function isValidRequest(RequestInterface $request)
     {
-         return true;
+        // return true;
         $hash = hash_hmac(
             'sha256',
             $request->getContent(),

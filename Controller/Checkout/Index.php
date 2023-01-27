@@ -218,6 +218,8 @@ class Index extends Action
             $vat -= $shippingVat;
             $totalNet -= $shippingNet;
             $shippingTotal = 0;
+            $shippingVat = 0;
+            $shippingNet = 0;
         }
 
         return [
@@ -231,11 +233,10 @@ class Index extends Action
 
     private function getShippingMethod($quote): array
     {
-        $totals = $this->cartTotalRepository->get($quote->getId());
         $countryId = $quote->getShippingAddress()->getCountryId();
         $shippingMethod = array();
         $shippingLine = [
-            'price'     => $totals->getBaseShippingAmount(),
+            'price'     => $quote->getBaseShippingAmount() ?: 0,
             'name'      => $quote->getShippingAddress()->getShippingMethod(),
             'countries' => [$countryId]
         ];
