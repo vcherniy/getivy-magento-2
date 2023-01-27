@@ -106,8 +106,31 @@ class Index extends Action implements CsrfAwareActionInterface
         $data = [];
 
         if (key_exists('shipping', $customerData)) {
-            $shippingMethods = [];
             $customerShippingData = $customerData['shipping']['shippingAddress'];
+
+            $countryId = $customerShippingData['country'];
+            $regionCode = $customerShippingData['region'];
+            $region = $this->regionFactory->create()->loadByCode($regionCode, $countryId);
+
+            $addressData = [
+                'firstname'  => $customerShippingData['firstName'],
+                'lastname'   => $customerShippingData['lastName'],
+                'street'     => $customerShippingData['line1'],
+                'city'       => $customerShippingData['city'],
+                'country_id' => $customerShippingData['country'],
+                'postcode'   => $customerShippingData['zipCode'],
+                'telephone'  => $customerData['shopperPhone'],
+                'region_id'  => $region->getId() ?: NULL,
+                'region'     => $region->getName() ?: $regionCode
+            ];
+
+            $address = $quote->getShippingAddress();
+            $address->addData($addressData);
+            $address->setCollectShippingRates(true);
+            $address->collectShippingRates();
+            $address->save();
+
+            $shippingMethods = [];
 
             if ($quote->isVirtual()) {
                 // if quote is virtual and shippingMethods is empty, add free shipping with the name per mail as the carrier
@@ -118,28 +141,6 @@ class Index extends Action implements CsrfAwareActionInterface
                     'reference' => 'email'
                 ];
             } else {
-                $countryId = $customerShippingData['country'];
-                $regionCode = $customerShippingData['region'];
-                $region = $this->regionFactory->create()->loadByCode($regionCode, $countryId);
-
-                $addressData = [
-                    'firstname'  => $customerShippingData['firstName'],
-                    'lastname'   => $customerShippingData['lastName'],
-                    'street'     => $customerShippingData['line1'],
-                    'city'       => $customerShippingData['city'],
-                    'country_id' => $customerShippingData['country'],
-                    'postcode'   => $customerShippingData['zipCode'],
-                    'telephone'  => $customerData['shopperPhone'],
-                    'region_id'  => $region->getId() ?: NULL,
-                    'region'     => $region->getName() ?: $regionCode
-                ];
-
-                $address = $quote->getShippingAddress();
-                $address->addData($addressData);
-                $address->setCollectShippingRates(true);
-                $address->collectShippingRates();
-                $address->save();
-
                 $estimatedMethods = $this->shippingMethodManagement->estimateByExtendedAddress($quote->getId(), $address);
                 /** @var \Magento\Quote\Model\Cart\ShippingMethod $method */
                 foreach ($estimatedMethods as $method) {

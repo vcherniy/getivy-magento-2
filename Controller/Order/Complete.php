@@ -110,7 +110,7 @@ class Complete extends Action implements CsrfAwareActionInterface
                     'city'       => $customerBillingData['city'],
                     'country_id' => $customerBillingData['country'],
                     'postcode'   => $customerBillingData['zipCode'],
-                    'telephone'  => $quote->isVirtual() ? '': $shippingAddress->getTelephone()
+                    'telephone'  => $shippingAddress->getTelephone()
                 ]
             ];
             $quote->getBillingAddress()->addData($billing['address']);
