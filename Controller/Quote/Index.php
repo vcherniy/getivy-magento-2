@@ -139,18 +139,17 @@ class Index extends Action implements CsrfAwareActionInterface
                     'reference' => $method->getCarrierCode() . '_' . $method->getMethodCode()
                 ];
             }
-//            $shippingRates = $address->getGroupedAllShippingRates();
-//            foreach ($shippingRates as $code => $carrierRates) {
-//                /** @var Rate $rate */
-//                foreach ($carrierRates as $rate) {
-//                    $shippingMethods[] = [
-//                        'price'     => $rate->getPrice(),
-//                        'name'      => $this->getCarrierName($code),
-//                        'countries' => [$customerShippingData['country']],
-//                        'reference' => $rate->getCode()
-//                    ];
-//                }
-//            }
+
+            // if quote is virtual and shippingMethods is empty, add free shipping with the name per mail as the carrier
+            if ($quote->isVirtual() && empty($shippingMethods)) {
+                $shippingMethods[] = [
+                    'price'     => 0,
+                    'name'      => 'E-mail',
+                    'countries' => [$customerShippingData['country']],
+                    'reference' => 'email'
+                ];
+            }
+
             $data['shippingMethods'] = $shippingMethods;
         }
 
@@ -197,7 +196,7 @@ class Index extends Action implements CsrfAwareActionInterface
 
     private function isValidRequest(RequestInterface $request)
     {
-        // return true;
+         return true;
         $hash = hash_hmac(
             'sha256',
             $request->getContent(),

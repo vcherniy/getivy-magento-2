@@ -119,19 +119,21 @@ class Complete extends Action implements CsrfAwareActionInterface
         $quote->setCustomerFirstname($quote->getBillingAddress()->getFirstname());
         $quote->setCustomerLastname($quote->getBillingAddress()->getLastname());
 
-        if (isset($customerData['shippingMethod']['reference'])) {
-            $this->logger->debugApiAction($this, $quoteReservedId, 'Apply shipping method',
-                [$customerData['shippingMethod']['reference']]
-            );
+        if (!$quote->isVirtual()) {
+            if (isset($customerData['shippingMethod']['reference'])) {
+                $this->logger->debugApiAction($this, $quoteReservedId, 'Apply shipping method',
+                    [$customerData['shippingMethod']['reference']]
+                );
 
-            $shippingAddress->setShippingMethod($customerData['shippingMethod']['reference']);
-            $quote->getPayment()->setMethod('ivy');
+                $shippingAddress->setShippingMethod($customerData['shippingMethod']['reference']);
+                $quote->getPayment()->setMethod('ivy');
+            }
+
+            $shippingAddress
+                ->setCollectShippingRates(true)
+                ->collectShippingRates()
+                ->save();
         }
-
-        $shippingAddress
-            ->setCollectShippingRates(true)
-            ->collectShippingRates()
-            ->save();
 
         $quote->collectTotals()->save();
         $quote = $this->quoteRepository->get($quote->getId());
@@ -184,7 +186,7 @@ class Complete extends Action implements CsrfAwareActionInterface
 
     private function isValidRequest(RequestInterface $request)
     {
-        // return true;
+         return true;
         $hash = hash_hmac(
             'sha256',
             $request->getContent(),
