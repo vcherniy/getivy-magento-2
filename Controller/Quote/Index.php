@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace Esparksinc\IvyPayment\Controller\Quote;
 
+use Esparksinc\IvyPayment\Helper\Discount as DiscountHelper;
 use Esparksinc\IvyPayment\Model\Config;
 use Esparksinc\IvyPayment\Model\Logger;
 use Magento\Directory\Model\RegionFactory;
@@ -17,11 +18,7 @@ use Magento\Framework\App\CsrfAwareActionInterface;
 use Magento\Framework\App\RequestInterface;
 use Magento\Framework\App\Request\InvalidRequestException;
 use Magento\Framework\Controller\Result\JsonFactory;
-use Magento\Framework\Exception\CouldNotSaveException;
-use Magento\Framework\Module\Manager as ModuleManager;
 use Magento\Framework\Serialize\Serializer\Json;
-use Magento\Quote\Api\Data\CartInterface;
-use Magento\Quote\Model\Cart\CartTotalRepository;
 use Magento\Quote\Model\QuoteFactory;
 use Magento\Quote\Model\QuoteRepository;
 use Magento\Quote\Model\ShippingMethodManagement;
@@ -35,10 +32,9 @@ class Index extends Action implements CsrfAwareActionInterface
     protected $quoteFactory;
     protected $quoteRepository;
     protected $regionFactory;
-    protected $cartTotalRepository;
     protected $logger;
     protected $shippingMethodManagement;
-    protected $moduleManager;
+    protected $discountHelper;
 
     /**
      * @param Context $context
@@ -49,10 +45,9 @@ class Index extends Action implements CsrfAwareActionInterface
      * @param QuoteFactory $quoteFactory
      * @param QuoteRepository $quoteRepository
      * @param RegionFactory $regionFactory
-     * @param CartTotalRepository $cartTotalRepository
      * @param Logger $logger
      * @param ShippingMethodManagement $shippingMethodManagement
-     * @param ModuleManager $moduleManager
+     * @param DiscountHelper $discountHelper
      */
     public function __construct(
         Context                  $context,
@@ -63,10 +58,9 @@ class Index extends Action implements CsrfAwareActionInterface
         QuoteFactory             $quoteFactory,
         QuoteRepository          $quoteRepository,
         RegionFactory            $regionFactory,
-        CartTotalRepository      $cartTotalRepository,
         Logger                   $logger,
         ShippingMethodManagement $shippingMethodManagement,
-        ModuleManager            $moduleManager
+        DiscountHelper           $discountHelper
     ) {
         $this->config = $config;
         $this->json = $json;
@@ -75,10 +69,9 @@ class Index extends Action implements CsrfAwareActionInterface
         $this->quoteFactory = $quoteFactory;
         $this->quoteRepository = $quoteRepository;
         $this->regionFactory = $regionFactory;
-        $this->cartTotalRepository = $cartTotalRepository;
         $this->logger = $logger;
         $this->shippingMethodManagement = $shippingMethodManagement;
-        $this->moduleManager = $moduleManager;
+        $this->discountHelper = $discountHelper;
         parent::__construct($context);
     }
 
@@ -100,7 +93,7 @@ class Index extends Action implements CsrfAwareActionInterface
 
         if (key_exists('discount', $customerData)) {
             $couponCode = $customerData['discount']['voucher'];
-            $this->applyCouponCode($quote, $couponCode);
+            $this->discountHelper->applyCouponCode($couponCode, $quote);
         }
 
         $data = [];
@@ -161,7 +154,7 @@ class Index extends Action implements CsrfAwareActionInterface
         $this->quoteRepository->save($quote);
 
         //Get discount
-        $discountAmount = $this->getDiscountAmount($quote);
+        $discountAmount = $this->discountHelper->getDiscountAmount($quote);
         if ($discountAmount !== 0) {
             $data['discount'] = [
                 'amount'    => abs($discountAmount)
@@ -182,45 +175,6 @@ class Index extends Action implements CsrfAwareActionInterface
             $this->config->getWebhookSecret());
         header('X-Ivy-Signature: ' . $hash);
         return $this->jsonFactory->create()->setData($data);
-    }
-
-    protected function applyCouponCode(CartInterface $quote, string $couponCode)
-    {
-        $couponApplied = false;
-
-        /*
-         * The Amasty Gift Card module implements its own logic that is not compatible with the coupons' core logic.
-         * We need work with the module directly
-         */
-        if ($this->moduleManager->isEnabled('Amasty_GiftCardAccount')) {
-            $giftCardAccountManagement = $this->_objectManager->create(
-                'Amasty\GiftCardAccount\Model\GiftCardAccount\GiftCardAccountManagement'
-            );
-
-            try {
-                $giftCardAccountManagement->applyGiftCardToCart($quote->getId(), $couponCode);
-                $couponApplied = true;
-            } catch (CouldNotSaveException $exception) {
-                // do nothing
-            }
-        }
-
-        if (!$couponApplied) {
-            $quote->setCouponCode($couponCode);
-        }
-    }
-
-    protected function getDiscountAmount(CartInterface $quote)
-    {
-        if ($this->moduleManager->isEnabled('Amasty_GiftCardAccount')) {
-            $discountAmount = $quote->getExtensionAttributes()
-                ->getAmGiftcardQuote()
-                ->getBaseGiftAmountUsed();
-        } else {
-            $totals = $this->cartTotalRepository->get($quote->getId());
-            $discountAmount = $totals->getDiscountAmount();
-        }
-        return $discountAmount;
     }
 
     public function createCsrfValidationException(RequestInterface $request): ?InvalidRequestException

@@ -8,6 +8,7 @@ declare(strict_types=1);
 namespace Esparksinc\IvyPayment\Controller\Checkout;
 
 use Esparksinc\IvyPayment\Helper\Api as ApiHelper;
+use Esparksinc\IvyPayment\Helper\Discount as DiscountHelper;
 use Esparksinc\IvyPayment\Model\Config;
 use Esparksinc\IvyPayment\Model\Logger;
 use Esparksinc\IvyPayment\Model\ErrorResolver;
@@ -19,7 +20,6 @@ use Magento\Framework\App\Action\Context;
 use Magento\Framework\Controller\Result\JsonFactory;
 use Magento\Framework\Controller\Result\RedirectFactory;
 use Magento\Quote\Api\CartRepositoryInterface;
-use Magento\Quote\Model\Cart\CartTotalRepository;
 
 class Index extends Action
 {
@@ -30,10 +30,10 @@ class Index extends Action
     protected $config;
     protected $onePage;
     protected $ivy;
-    protected $cartTotalRepository;
     protected $logger;
     protected $errorResolver;
     protected $apiHelper;
+    protected $discountHelper;
 
     /**
      * @param Context $context
@@ -44,10 +44,10 @@ class Index extends Action
      * @param Config $config
      * @param Onepage $onePage
      * @param IvyFactory $ivy
-     * @param CartTotalRepository $cartTotalRepository
      * @param Logger $logger
      * @param ErrorResolver $errorResolver
      * @param ApiHelper $apiHelper
+     * @param DiscountHelper $discountHelper
      */
     public function __construct(
         Context                 $context,
@@ -58,10 +58,10 @@ class Index extends Action
         Config                  $config,
         Onepage                 $onePage,
         IvyFactory              $ivy,
-        CartTotalRepository     $cartTotalRepository,
         Logger                  $logger,
         ErrorResolver           $errorResolver,
-        ApiHelper               $apiHelper
+        ApiHelper               $apiHelper,
+        DiscountHelper           $discountHelper
     ) {
         $this->jsonFactory = $jsonFactory;
         $this->resultRedirectFactory = $resultRedirectFactory;
@@ -70,10 +70,10 @@ class Index extends Action
         $this->config = $config;
         $this->onePage = $onePage;
         $this->ivy = $ivy;
-        $this->cartTotalRepository = $cartTotalRepository;
         $this->logger = $logger;
         $this->errorResolver = $errorResolver;
         $this->apiHelper = $apiHelper;
+        $this->discountHelper = $discountHelper;
         parent::__construct($context);
     }
     public function execute()
@@ -105,7 +105,7 @@ class Index extends Action
         $price = $this->getPrice($quote);
 
         // Line Items
-        $ivyLineItems = $this->getLineItem($quote);
+        $ivyLineItems = $this->getLineItems($quote);
 
         // Shipping Methods
         $shippingMethods = $quote->isVirtual() ? [] : $this->getShippingMethod($quote);
@@ -164,7 +164,7 @@ class Index extends Action
         }
     }
 
-    private function getLineItem($quote)
+    private function getLineItems($quote)
     {
         $ivyLineItems = array();
         foreach ($quote->getAllVisibleItems() as $lineItem) {
@@ -179,14 +179,13 @@ class Index extends Action
             ];
         }
 
-        $totals = $this->cartTotalRepository->get($quote->getId());
-        $discountAmount = $totals->getDiscountAmount();
-        if ($discountAmount < 0) {
+        $discountAmount = $this->discountHelper->getDiscountAmount($quote);
+        if ($discountAmount !== 0) {
             $ivyLineItems[] = [
                 'name'      => 'Discount',
-                'singleNet' => $discountAmount,
+                'singleNet' => abs($discountAmount),
                 'singleVat' => 0,
-                'amount'    => $discountAmount
+                'amount'    => abs($discountAmount)
             ];
         }
 
