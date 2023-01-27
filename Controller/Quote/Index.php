@@ -20,6 +20,7 @@ use Magento\Framework\App\Request\InvalidRequestException;
 use Magento\Framework\Controller\Result\JsonFactory;
 use Magento\Framework\Serialize\Serializer\Json;
 use Magento\Quote\Model\QuoteFactory;
+use Magento\Quote\Model\Cart\CartTotalRepository;
 use Magento\Quote\Model\QuoteRepository;
 use Magento\Quote\Model\ShippingMethodManagement;
 
@@ -32,6 +33,7 @@ class Index extends Action implements CsrfAwareActionInterface
     protected $quoteFactory;
     protected $quoteRepository;
     protected $regionFactory;
+    protected $cartTotalRepository;
     protected $logger;
     protected $shippingMethodManagement;
     protected $discountHelper;
@@ -45,6 +47,7 @@ class Index extends Action implements CsrfAwareActionInterface
      * @param QuoteFactory $quoteFactory
      * @param QuoteRepository $quoteRepository
      * @param RegionFactory $regionFactory
+     * @param CartTotalRepository $cartTotalRepository
      * @param Logger $logger
      * @param ShippingMethodManagement $shippingMethodManagement
      * @param DiscountHelper $discountHelper
@@ -58,6 +61,7 @@ class Index extends Action implements CsrfAwareActionInterface
         QuoteFactory             $quoteFactory,
         QuoteRepository          $quoteRepository,
         RegionFactory            $regionFactory,
+        CartTotalRepository      $cartTotalRepository,
         Logger                   $logger,
         ShippingMethodManagement $shippingMethodManagement,
         DiscountHelper           $discountHelper
@@ -69,6 +73,7 @@ class Index extends Action implements CsrfAwareActionInterface
         $this->quoteFactory = $quoteFactory;
         $this->quoteRepository = $quoteRepository;
         $this->regionFactory = $regionFactory;
+        $this->cartTotalRepository = $cartTotalRepository;
         $this->logger = $logger;
         $this->shippingMethodManagement = $shippingMethodManagement;
         $this->discountHelper = $discountHelper;

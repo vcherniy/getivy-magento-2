@@ -20,6 +20,7 @@ use Magento\Framework\App\Action\Context;
 use Magento\Framework\Controller\Result\JsonFactory;
 use Magento\Framework\Controller\Result\RedirectFactory;
 use Magento\Quote\Api\CartRepositoryInterface;
+use Magento\Quote\Model\Cart\CartTotalRepository;
 
 class Index extends Action
 {
@@ -30,6 +31,7 @@ class Index extends Action
     protected $config;
     protected $onePage;
     protected $ivy;
+    protected $cartTotalRepository;
     protected $logger;
     protected $errorResolver;
     protected $apiHelper;
@@ -44,6 +46,7 @@ class Index extends Action
      * @param Config $config
      * @param Onepage $onePage
      * @param IvyFactory $ivy
+     * @param CartTotalRepository $cartTotalRepository
      * @param Logger $logger
      * @param ErrorResolver $errorResolver
      * @param ApiHelper $apiHelper
@@ -58,6 +61,7 @@ class Index extends Action
         Config                  $config,
         Onepage                 $onePage,
         IvyFactory              $ivy,
+        CartTotalRepository     $cartTotalRepository,
         Logger                  $logger,
         ErrorResolver           $errorResolver,
         ApiHelper               $apiHelper,
@@ -70,6 +74,7 @@ class Index extends Action
         $this->config = $config;
         $this->onePage = $onePage;
         $this->ivy = $ivy;
+        $this->cartTotalRepository = $cartTotalRepository;
         $this->logger = $logger;
         $this->errorResolver = $errorResolver;
         $this->apiHelper = $apiHelper;
@@ -195,14 +200,12 @@ class Index extends Action
 
     private function getPrice($quote)
     {
-        $vat = $quote->getBaseTaxAmount() ?: 0;
-        $total = $quote->getBaseGrandTotal() ?: 0;
-
+        $totals = $this->cartTotalRepository->get($quote->getId());
         return [
-            'totalNet'  => $total - $vat,
-            'vat'       => $vat,
-            'shipping'  => $quote->getBaseShippingAmount() ?: 0,
-            'total'     => $total,
+            'totalNet'  => $totals->getBaseSubtotal(),
+            'vat'       => $totals->getBaseTaxAmount(),
+            'shipping'  => $totals->getBaseShippingAmount(),
+            'total'     => $totals->getBaseGrandTotal(),
             'currency'  => $quote->getBaseCurrencyCode(),
         ];
     }
