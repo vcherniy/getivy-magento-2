@@ -110,7 +110,7 @@ class Complete extends Action implements CsrfAwareActionInterface
                     'city'       => $customerBillingData['city'],
                     'country_id' => $customerBillingData['country'],
                     'postcode'   => $customerBillingData['zipCode'],
-                    'telephone'  => $shippingAddress->getTelephone()
+                    'telephone'  => $quote->isVirtual() ? '': $shippingAddress->getTelephone()
                 ]
             ];
             $quote->getBillingAddress()->addData($billing['address']);
@@ -132,6 +132,8 @@ class Complete extends Action implements CsrfAwareActionInterface
                 ->setCollectShippingRates(true)
                 ->collectShippingRates()
                 ->save();
+
+            $this->logger->debugApiAction($this, $quoteReservedId, 'Shipping address', $shippingAddress->getData());
         }
 
         $quote->getPayment()->setMethod('ivy');
@@ -139,7 +141,6 @@ class Complete extends Action implements CsrfAwareActionInterface
         $quote = $this->quoteRepository->get($quote->getId());
 
         $this->logger->debugApiAction($this, $quoteReservedId, 'Quote', $quote->getData());
-        $this->logger->debugApiAction($this, $quoteReservedId, 'Shipping address', $shippingAddress->getData());
 
         $qouteGrandTotal = $quote->getGrandTotal();
         $ivyTotal = $customerData['price']['total'];

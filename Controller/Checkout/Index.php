@@ -91,7 +91,7 @@ class Index extends Action
 
         $this->logger->debugRequest($this, $orderId);
 
-        if($express) {
+        if($express && !$quote->isVirtual()) {
             $quote->getShippingAddress()->setShippingMethod('');
             $quote->getShippingAddress()->setCollectShippingRates(true);
             $quote->getShippingAddress()->collectShippingRates();
