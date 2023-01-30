@@ -79,39 +79,34 @@ class Index extends Action implements CsrfAwareActionInterface
 
         if($arrData['type'] === 'order_updated' || $arrData['type'] === 'order_created')
         {
-            if ($arrData['payload']['status'] === 'failed'
-                || $arrData['payload']['status'] === 'canceled')
-            {
-                if ($orderdetails->canInvoice()) {
-                    $this->orderManagement->cancel($orderId);
-                }
-                else{
-                    $this->orderRefund($arrData);
-                }
-            }
-            elseif($arrData['payload']['status'] === 'authorised')
-            {
-                if ($orderdetails->canInvoice()) {
-                    $this->createInvoice($arrData);
-                }
-                else{
-                    $this->setOrderStatus($arrData,'payment_authorised');
-                }
-            }
-            elseif($arrData['payload']['status'] === 'paid')
-            {
-                if ($orderdetails->canInvoice()) {
-                    $this->createInvoice($arrData);
-                }
-                else{
-                    $this->setOrderStatus($arrData,'processing');
-                }
-            }
-            elseif($arrData['payload']['status'] === 'processing')
-            {
-                if ($orderdetails->canInvoice()) {
-                    $this->createInvoice($arrData);
-                }
+            switch ($arrData['payload']['status']) {
+                case 'failed':
+                case 'canceled':
+                    if ($orderdetails->canInvoice()) {
+                        $this->orderManagement->cancel($orderId);
+                    } else{
+                        $this->orderRefund($arrData);
+                    }
+                    break;
+                case 'authorised':
+                    if ($orderdetails->canInvoice()) {
+                        $this->createInvoice($arrData);
+                    } else{
+                        $this->setOrderStatus($arrData,'payment_authorised');
+                    }
+                    break;
+                case 'paid':
+                    if ($orderdetails->canInvoice()) {
+                        $this->createInvoice($arrData);
+                    } else{
+                        $this->setOrderStatus($arrData,'processing');
+                    }
+                    break;
+                case 'processing':
+                    if ($orderdetails->canInvoice()) {
+                        $this->createInvoice($arrData);
+                    }
+                    break;
             }
         }
     }
