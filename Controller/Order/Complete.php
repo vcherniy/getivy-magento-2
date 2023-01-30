@@ -24,6 +24,7 @@ use Magento\Quote\Model\Cart\CartTotalRepository;
 use Magento\Quote\Model\QuoteFactory;
 use Magento\Quote\Model\QuoteRepository;
 use Magento\Store\Model\StoreManagerInterface;
+use Magento\Framework\Api\SearchCriteriaBuilder;
 
 class Complete extends Action implements CsrfAwareActionInterface
 {
@@ -37,6 +38,7 @@ class Complete extends Action implements CsrfAwareActionInterface
     protected $cartTotalRepository;
     protected $quoteManagement;
     protected $storeManager;
+    protected $searchCriteriaBuilder;
     protected $logger;
     protected $errorResolver;
 
@@ -67,10 +69,12 @@ class Complete extends Action implements CsrfAwareActionInterface
         CartTotalRepository     $cartTotalRepository,
         CartManagementInterface $quoteManagement,
         StoreManagerInterface   $storeManager,
+        SearchCriteriaBuilder   $searchCriteriaBuilder,
         Logger                  $logger,
         ErrorResolver           $errorResolver
     ) {
         $this->config = $config;
+        $this->searchCriteriaBuilder = $searchCriteriaBuilder;
         $this->json = $json;
         $this->jsonFactory = $jsonFactory;
         $this->scopeConfig = $scopeConfig;
@@ -95,7 +99,17 @@ class Complete extends Action implements CsrfAwareActionInterface
         $frontendUrl = $this->storeManager->getStore()->getBaseUrl();
         $redirectUrl = $frontendUrl.'ivypayment/complete/success';
 
-        $quote = $this->quoteFactory->create()->load($quoteReservedId,'reserved_order_id');
+        $quoteReservedId = $request->getParam('reference');
+
+        $searchCriteria = $this->searchCriteriaBuilder->addFilter('reserved_order_id', $quoteReservedId)->create();
+        $quotes = $this->quoteRepository->getList($searchCriteria)->getItems();
+
+        if (count($quotes) === 1) {
+            $quote = array_values($quotes)[0];
+        } else {
+            $quote = $this->quoteFactory->create()->load($quoteReservedId, 'reserved_order_id');
+        }
+
         $quote = $this->quoteRepository->get($quote->getId());
 
         $shippingAddress = $quote->getShippingAddress();
@@ -119,25 +133,28 @@ class Complete extends Action implements CsrfAwareActionInterface
         $quote->setCustomerFirstname($quote->getBillingAddress()->getFirstname());
         $quote->setCustomerLastname($quote->getBillingAddress()->getLastname());
 
-        if (isset($customerData['shippingMethod']['reference'])) {
-            $this->logger->debugApiAction($this, $quoteReservedId, 'Apply shipping method',
-                [$customerData['shippingMethod']['reference']]
-            );
+        if (!$quote->isVirtual()) {
+            if (isset($customerData['shippingMethod']['reference'])) {
+                $this->logger->debugApiAction($this, $quoteReservedId, 'Apply shipping method',
+                    [$customerData['shippingMethod']['reference']]
+                );
 
-            $shippingAddress->setShippingMethod($customerData['shippingMethod']['reference']);
-            $quote->getPayment()->setMethod('ivy');
+                $shippingAddress->setShippingMethod($customerData['shippingMethod']['reference']);
+            }
+
+            $shippingAddress
+                ->setCollectShippingRates(true)
+                ->collectShippingRates()
+                ->save();
+
+            $this->logger->debugApiAction($this, $quoteReservedId, 'Shipping address', $shippingAddress->getData());
         }
 
-        $shippingAddress
-            ->setCollectShippingRates(true)
-            ->collectShippingRates()
-            ->save();
-
+        $quote->getPayment()->setMethod('ivy');
         $quote->collectTotals()->save();
         $quote = $this->quoteRepository->get($quote->getId());
 
         $this->logger->debugApiAction($this, $quoteReservedId, 'Quote', $quote->getData());
-        $this->logger->debugApiAction($this, $quoteReservedId, 'Shipping address', $shippingAddress->getData());
 
         $qouteGrandTotal = $quote->getGrandTotal();
         $ivyTotal = $customerData['price']['total'];
