@@ -174,13 +174,23 @@ class Index extends Action implements CsrfAwareActionInterface
         //Get discount
         $discountAmount = $this->discountHelper->getDiscountAmount($quote);
         if ($discountAmount !== 0.0) {
+            $totals = $this->cartTotalRepository->get($quote->getId());
+
+            $shippingTotal = $totals->getBaseShippingAmount();
+            $shippingVat = $totals->getBaseShippingTaxAmount();
+            $shippingNet = $shippingTotal - $shippingVat;
+
+            $total = $totals->getBaseGrandTotal() - $shippingTotal;
+            $vat = $totals->getBaseTaxAmount() - $shippingVat;
+            $totalNet = $total - $vat - $shippingNet;
+
             $data['discount'] = [
                 'amount'    => abs($discountAmount)
             ];
             $data['price'] = [
-                'totalNet'  => $quote->getBaseSubtotal() ?: 0,
-                'vat'       => $quote->getBaseTaxAmount() ?: 0,
-                'total'     => $quote->getBaseGrandTotal() ?: 0
+                'totalNet'  => $totalNet,
+                'vat'       => $vat,
+                'total'     => $total
             ];
         }
 

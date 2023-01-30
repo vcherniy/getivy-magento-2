@@ -214,7 +214,7 @@ class Index extends Action
 
         if ($express) {
             $total -= $shippingTotal;
-            $total -= $shippingVat;
+//            $total -= $shippingVat;
             $vat -= $shippingVat;
             $totalNet -= $shippingNet;
             $shippingTotal = 0;
