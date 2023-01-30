@@ -202,9 +202,9 @@ class Index extends Action
     {
         $totals = $this->cartTotalRepository->get($quote->getId());
 
-        $shippingTotal = $totals->getBaseShippingAmount();
+        $shippingNet = $totals->getBaseShippingAmount();
         $shippingVat = $totals->getBaseShippingTaxAmount();
-        $shippingNet = $shippingTotal - $shippingVat;
+        $shippingTotal = $shippingNet + $shippingVat;
 
         $total = $totals->getBaseGrandTotal();
         $vat = $totals->getBaseTaxAmount();
@@ -214,7 +214,6 @@ class Index extends Action
 
         if ($express) {
             $total -= $shippingTotal;
-//            $total -= $shippingVat;
             $vat -= $shippingVat;
             $totalNet -= $shippingNet;
             $shippingTotal = 0;
