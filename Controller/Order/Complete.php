@@ -159,7 +159,7 @@ class Complete extends Action implements CsrfAwareActionInterface
         $qouteGrandTotal = $quote->getGrandTotal();
         $ivyTotal = $customerData['price']['total'];
 
-        if (floor($qouteGrandTotal * 100) != floor($ivyTotal * 100)) {
+        if ((int)ceil($qouteGrandTotal * 100) != (int)ceil($ivyTotal * 100)) {
             $this->logger->debugApiAction($this, $quoteReservedId, 'Incorrect totals',
                 ['magento' => $qouteGrandTotal, 'ivy' => $ivyTotal]
             );
