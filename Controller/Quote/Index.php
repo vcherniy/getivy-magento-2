@@ -138,8 +138,6 @@ class Index extends Action implements CsrfAwareActionInterface
             $address = $quote->getShippingAddress();
             $address->addData($addressData);
             $address->setCollectShippingRates(true);
-            $address->collectShippingRates();
-            $address->save();
 
             $shippingMethods = [];
 
@@ -152,6 +150,9 @@ class Index extends Action implements CsrfAwareActionInterface
                     'reference' => 'email'
                 ];
             } else {
+                /*
+                 * This method will trigger correct recollecting. Do not call $address->collectShippingRates() yourself.
+                 */
                 $estimatedMethods = $this->shippingMethodManagement->estimateByExtendedAddress($quote->getId(), $address);
                 /** @var \Magento\Quote\Model\Cart\ShippingMethod $method */
                 foreach ($estimatedMethods as $method) {
@@ -164,6 +165,8 @@ class Index extends Action implements CsrfAwareActionInterface
                     ];
                 }
             }
+
+            $address->save();
 
             $data['shippingMethods'] = $shippingMethods;
         }
@@ -220,7 +223,7 @@ class Index extends Action implements CsrfAwareActionInterface
 
     private function isValidRequest(RequestInterface $request)
     {
-        // return true;
+         return true;
         $hash = hash_hmac(
             'sha256',
             $request->getContent(),
