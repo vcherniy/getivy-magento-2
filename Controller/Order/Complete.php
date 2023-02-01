@@ -207,7 +207,7 @@ class Complete extends Action implements CsrfAwareActionInterface
 
     private function isValidRequest(RequestInterface $request)
     {
-         return true;
+         // return true;
         $hash = hash_hmac(
             'sha256',
             $request->getContent(),
