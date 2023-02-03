@@ -60,11 +60,13 @@ class Discount extends \Magento\Framework\App\Helper\AbstractHelper
 
     public function getDiscountAmount(CartInterface $quote)
     {
+        $discountAmount = 0.0;
         if ($this->moduleManager->isEnabled('Amasty_GiftCardAccount')) {
             $discountAmount = $quote->getExtensionAttributes()
                 ->getAmGiftcardQuote()
                 ->getBaseGiftAmountUsed();
-        } else {
+        }
+        if (!$discountAmount) {
             $totals = $this->cartTotalRepository->get($quote->getId());
             $discountAmount = $totals->getDiscountAmount();
         }

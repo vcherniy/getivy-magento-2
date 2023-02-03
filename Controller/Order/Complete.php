@@ -21,6 +21,7 @@ use Magento\Framework\Controller\Result\JsonFactory;
 use Magento\Framework\Serialize\Serializer\Json;
 use Magento\Quote\Api\CartManagementInterface;
 use Magento\Quote\Model\Cart\CartTotalRepository;
+use Magento\Quote\Model\Quote\TotalsCollector;
 use Magento\Quote\Model\QuoteFactory;
 use Magento\Quote\Model\QuoteRepository;
 use Magento\Store\Model\StoreManagerInterface;
@@ -41,6 +42,7 @@ class Complete extends Action implements CsrfAwareActionInterface
     protected $searchCriteriaBuilder;
     protected $logger;
     protected $errorResolver;
+    protected $totalsCollector;
 
     /**
      * @param Context $context
@@ -54,8 +56,10 @@ class Complete extends Action implements CsrfAwareActionInterface
      * @param CartTotalRepository $cartTotalRepository
      * @param CartManagementInterface $quoteManagement
      * @param StoreManagerInterface $storeManager
+     * @param SearchCriteriaBuilder $searchCriteriaBuilder
      * @param Logger $logger
      * @param ErrorResolver $errorResolver
+     * @param TotalsCollector $totalsCollector
      */
     public function __construct(
         Context                 $context,
@@ -71,7 +75,8 @@ class Complete extends Action implements CsrfAwareActionInterface
         StoreManagerInterface   $storeManager,
         SearchCriteriaBuilder   $searchCriteriaBuilder,
         Logger                  $logger,
-        ErrorResolver           $errorResolver
+        ErrorResolver           $errorResolver,
+        TotalsCollector         $totalsCollector
     ) {
         $this->config = $config;
         $this->searchCriteriaBuilder = $searchCriteriaBuilder;
@@ -86,6 +91,7 @@ class Complete extends Action implements CsrfAwareActionInterface
         $this->storeManager = $storeManager;
         $this->logger = $logger;
         $this->errorResolver = $errorResolver;
+        $this->totalsCollector = $totalsCollector;
         parent::__construct($context);
     }
     public function execute()
@@ -142,10 +148,9 @@ class Complete extends Action implements CsrfAwareActionInterface
                 $shippingAddress->setShippingMethod($customerData['shippingMethod']['reference']);
             }
 
-            $shippingAddress
-                ->setCollectShippingRates(true)
-                ->collectShippingRates()
-                ->save();
+            $shippingAddress->setCollectShippingRates(true);
+            $this->totalsCollector->collectAddressTotals($quote, $shippingAddress);
+            $shippingAddress->save();
 
             $this->logger->debugApiAction($this, $quoteReservedId, 'Shipping address', $shippingAddress->getData());
         }
@@ -156,10 +161,11 @@ class Complete extends Action implements CsrfAwareActionInterface
 
         $this->logger->debugApiAction($this, $quoteReservedId, 'Quote', $quote->getData());
 
-        $qouteGrandTotal = $quote->getGrandTotal();
+        $totals = $this->cartTotalRepository->get($quote->getId());
+        $qouteGrandTotal = $totals->getBaseGrandTotal();
         $ivyTotal = $customerData['price']['total'];
 
-        if (floor($qouteGrandTotal * 100) != floor($ivyTotal * 100)) {
+        if ((int)ceil($qouteGrandTotal * 100) != (int)ceil($ivyTotal * 100)) {
             $this->logger->debugApiAction($this, $quoteReservedId, 'Incorrect totals',
                 ['magento' => $qouteGrandTotal, 'ivy' => $ivyTotal]
             );
