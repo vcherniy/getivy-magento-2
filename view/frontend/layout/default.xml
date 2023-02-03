@@ -6,11 +6,11 @@
  */
 -->
 <page xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:View/Layout/etc/page_configuration.xsd">
-    <head>
-        <script src="https://cdn.sand.getivy.de/banner.js" src_type="url"/>
-        <script src="https://cdn.sand.getivy.de/button.js" src_type="url"/>
-    </head>
 	<body>
+        <referenceBlock name="root">
+            <block class="Esparksinc\IvyPayment\Block\Head" name="ivy_head" as="ivy_head" />
+        </referenceBlock>
+
 		<referenceContainer name="minicart.addons">
             <block class="Magento\Checkout\Block\Cart\Sidebar" name="ivy_mini" template="Esparksinc_IvyPayment::minicart/ivypayment-button.phtml">
                 <arguments>
