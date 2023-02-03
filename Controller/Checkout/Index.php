@@ -194,6 +194,7 @@ class Index extends Action
 
         $total = $totals->getBaseGrandTotal();
         $vat = $totals->getBaseTaxAmount();
+
         $totalNet = $total - $vat;
 
         $currency = $quote->getBaseCurrencyCode();
