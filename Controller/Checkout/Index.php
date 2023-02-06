@@ -7,17 +7,18 @@ declare(strict_types=1);
 
 namespace Esparksinc\IvyPayment\Controller\Checkout;
 
+use Esparksinc\IvyPayment\Helper\Api as ApiHelper;
+use Esparksinc\IvyPayment\Helper\Discount as DiscountHelper;
 use Esparksinc\IvyPayment\Model\Config;
-use Esparksinc\IvyPayment\Model\Debug;
+use Esparksinc\IvyPayment\Model\Logger;
+use Esparksinc\IvyPayment\Model\ErrorResolver;
 use Esparksinc\IvyPayment\Model\IvyFactory;
-use GuzzleHttp\Client;
 use Magento\Checkout\Model\Session;
 use Magento\Checkout\Model\Type\Onepage;
 use Magento\Framework\App\Action\Action;
 use Magento\Framework\App\Action\Context;
 use Magento\Framework\Controller\Result\JsonFactory;
 use Magento\Framework\Controller\Result\RedirectFactory;
-use Magento\Framework\Serialize\Serializer\Json;
 use Magento\Quote\Api\CartRepositoryInterface;
 use Magento\Quote\Model\Cart\CartTotalRepository;
 
@@ -28,11 +29,13 @@ class Index extends Action
     protected $checkoutSession;
     protected $quoteRepository;
     protected $config;
-    protected $json;
     protected $onePage;
     protected $ivy;
     protected $cartTotalRepository;
-    private Debug $debug;
+    protected $logger;
+    protected $errorResolver;
+    protected $apiHelper;
+    protected $discountHelper;
 
     /**
      * @param Context $context
@@ -40,12 +43,14 @@ class Index extends Action
      * @param RedirectFactory $resultRedirectFactory
      * @param Session $checkoutSession
      * @param CartRepositoryInterface $quoteRepository
-     * @param Json $json
      * @param Config $config
      * @param Onepage $onePage
      * @param IvyFactory $ivy
      * @param CartTotalRepository $cartTotalRepository
-     * @param Debug $debug
+     * @param Logger $logger
+     * @param ErrorResolver $errorResolver
+     * @param ApiHelper $apiHelper
+     * @param DiscountHelper $discountHelper
      */
     public function __construct(
         Context                 $context,
@@ -53,23 +58,27 @@ class Index extends Action
         RedirectFactory         $resultRedirectFactory,
         Session                 $checkoutSession,
         CartRepositoryInterface $quoteRepository,
-        Json                    $json,
         Config                  $config,
         Onepage                 $onePage,
         IvyFactory              $ivy,
         CartTotalRepository     $cartTotalRepository,
-        Debug                   $debug
+        Logger                  $logger,
+        ErrorResolver           $errorResolver,
+        ApiHelper               $apiHelper,
+        DiscountHelper           $discountHelper
     ) {
         $this->jsonFactory = $jsonFactory;
         $this->resultRedirectFactory = $resultRedirectFactory;
         $this->checkoutSession = $checkoutSession;
         $this->quoteRepository = $quoteRepository;
-        $this->json = $json;
         $this->config = $config;
         $this->onePage = $onePage;
         $this->ivy = $ivy;
         $this->cartTotalRepository = $cartTotalRepository;
-        $this->debug = $debug;
+        $this->logger = $logger;
+        $this->errorResolver = $errorResolver;
+        $this->apiHelper = $apiHelper;
+        $this->discountHelper = $discountHelper;
         parent::__construct($context);
     }
     public function execute()
@@ -78,31 +87,30 @@ class Index extends Action
         $ivyModel = $this->ivy->create();
 
         $quote = $this->checkoutSession->getQuote();
-        if(!$quote->getReservedOrderId())
-        {
+
+        if (!$quote->getReservedOrderId()) {
             $quote->reserveOrderId();
             $ivyModel->setMagentoOrderId($quote->getReservedOrderId());
         }
 
         $orderId = $quote->getReservedOrderId();
 
+        $this->logger->debugRequest($this, $orderId);
+
+        $quote->collectTotals();
+
         $this->quoteRepository->save($quote);
 
-        //Price
         $price = $this->getPrice($quote, $express);
 
-        // Line Items
-        $ivyLineItems = $this->getLineItem($quote);
+        $ivyLineItems = $this->getLineItems($quote);
 
-        // Shipping Methods
         $shippingMethods = $quote->isVirtual() ? [] : $this->getShippingMethod($quote);
 
-        //billingAddress
         $billingAddress = $this->getBillingAddress($quote);
 
         $mcc = $this->config->getMcc();
 
-        // get plugin version from composer.json and set to field plugin
         $plugin = $this->getPluginVersion();
 
         if($express) {
@@ -131,92 +139,68 @@ class Index extends Action
             ];
         }
 
-        $jsonContent = $this->json->serialize($data);
-        $client = new Client([
-            'base_uri' => $this->config->getApiUrl(),
-            'headers' => [
-                'X-Ivy-Api-Key' => $this->config->getApiKey(),
-            ],
-        ]);
-
-        $headers['content-type'] = 'application/json';
-        $options = [
-            'headers' => $headers,
-            'body' => $jsonContent,
-        ];
-
-        $response = $client->post('checkout/session/create', $options);
-
-        $this->debug->log(
-            '[IvyPayment] Get Checkout Status Code:',
-            [$response->getStatusCode()]
+        $responseData = $this->apiHelper->requestApi($this, 'checkout/session/create', $data, $orderId,
+            function ($exception) use ($quote) {
+                $this->errorResolver->tryResolveException($quote, $exception);
+            }
         );
 
-        if ($response->getStatusCode() === 200) {
-            //Order Place if not express
-            // if(!$express)
-            // $this->onePage->saveOrder();
+        if ($responseData) {
 
-            // Redirect to Ivy payment
-            $arrData = $this->json->unserialize((string)$response->getBody());
-
-            $ivyModel->setIvyCheckoutSession($arrData['id']);
-            $ivyModel->setIvyRedirectUrl($arrData['redirectUrl']);
+            $ivyModel->setIvyCheckoutSession($responseData['id']);
+            $ivyModel->setIvyRedirectUrl($responseData['redirectUrl']);
             $ivyModel->save();
 
-            return $this->jsonFactory->create()->setData(['redirectUrl'=> $arrData['redirectUrl']]);
+            return $this->jsonFactory->create()->setData(['redirectUrl'=> $responseData['redirectUrl']]);
         }
     }
 
-    private function getLineItem($quote)
+    private function getLineItems($quote)
     {
         $ivyLineItems = array();
         foreach ($quote->getAllVisibleItems() as $lineItem) {
-            $lineItem = [
-                'name' => $lineItem->getName(),
-                'referenceId' => $lineItem->getSku(),
-                'singleNet' => $lineItem->getBasePrice(),
-                'singleVat' => $lineItem->getBaseTaxAmount()?$lineItem->getBaseTaxAmount():0,
-                'amount' => $lineItem->getBaseRowTotalInclTax()?$lineItem->getBaseRowTotalInclTax():0,
-                'quantity' => $lineItem->getQty(),
-                'image' => '',
+            $ivyLineItems[] = [
+                'name'          => $lineItem->getName(),
+                'referenceId'   => $lineItem->getSku(),
+                'singleNet'     => $lineItem->getBasePrice(),
+                'singleVat'     => $lineItem->getBaseTaxAmount() ?: 0,
+                'amount'        => $lineItem->getBaseRowTotalInclTax() ?: 0,
+                'quantity'      => $lineItem->getQty(),
+                'image'         => '',
             ];
-
-            $ivyLineItems[] = $lineItem;
         }
 
-        $totals = $this->cartTotalRepository->get($quote->getId());
-        $discountAmount = $totals->getDiscountAmount();
-        if($discountAmount < 0)
-        {
-            $lineItem = [
-                'name' => 'Discount',
+        $discountAmount = $this->discountHelper->getDiscountAmount($quote);
+        if ($discountAmount !== 0.0) {
+            $discountAmount = -1 * abs($discountAmount);
+            $ivyLineItems[] = [
+                'name'      => 'Discount',
                 'singleNet' => $discountAmount,
                 'singleVat' => 0,
-                'amount' => $discountAmount
+                'amount'    => $discountAmount
             ];
-
-            $ivyLineItems[] = $lineItem;
         }
 
         return $ivyLineItems;
     }
 
-    private function getPrice($quote, $express = false)
+    private function getPrice($quote, $express)
     {
-        $shippingTotal = $quote->getShippingAddress() ? $quote->getShippingAddress()->getShippingAmount() : 0;
-        $shippingVat = $quote->getShippingAddress() ? $quote->getShippingAddress()->getBaseShippingTaxAmount() : 0;
-        $shippingNet = $shippingTotal - $shippingVat;
+        $totals = $this->cartTotalRepository->get($quote->getId());
 
-        $total = $quote->getShippingAddress() ? $quote->getShippingAddress()->getBaseGrandTotal() : 0;
-        $vat = $quote->getShippingAddress() ? $quote->getShippingAddress()->getBaseTaxAmount() : 0;
+        $shippingNet = $totals->getBaseShippingAmount();
+        $shippingVat = $totals->getBaseShippingTaxAmount();
+        $shippingTotal = $shippingNet + $shippingVat;
+
+        $total = $totals->getBaseGrandTotal();
+        $vat = $totals->getBaseTaxAmount();
+
         $totalNet = $total - $vat;
 
         $currency = $quote->getBaseCurrencyCode();
 
         if ($express) {
             $total -= $shippingTotal;
-            $total -= $shippingVat;
             $vat -= $shippingVat;
             $totalNet -= $shippingNet;
             $shippingTotal = 0;
@@ -235,13 +219,12 @@ class Index extends Action
 
     private function getShippingMethod($quote): array
     {
-        $shippingAmount = $quote->getBaseShippingAmount() ? $quote->getBaseShippingAmount() : 0;
-        $countryId[] = $quote->getShippingAddress()->getCountryId();
+        $countryId = $quote->getShippingAddress()->getCountryId();
         $shippingMethod = array();
         $shippingLine = [
-            'price' => $shippingAmount,
-            'name' => $quote->getShippingAddress()->getShippingMethod(),
-            'countries' => $countryId
+            'price'     => $quote->getBaseShippingAmount() ?: 0,
+            'name'      => $quote->getShippingAddress()->getShippingMethod(),
+            'countries' => [$countryId]
         ];
 
         $shippingMethod[] = $shippingLine;
@@ -253,11 +236,11 @@ class Index extends Action
     {
         return [
             'firstName' => $quote->getBillingAddress()->getFirstname(),
-            'LastName' => $quote->getBillingAddress()->getLastname(),
-            'line1' => $quote->getBillingAddress()->getStreet()[0],
-            'city' => $quote->getBillingAddress()->getCity(),
-            'zipCode' => $quote->getBillingAddress()->getPostcode(),
-            'country' => $quote->getBillingAddress()->getCountryId(),
+            'LastName'  => $quote->getBillingAddress()->getLastname(),
+            'line1'     => $quote->getBillingAddress()->getStreet()[0],
+            'city'      => $quote->getBillingAddress()->getCity(),
+            'zipCode'   => $quote->getBillingAddress()->getPostcode(),
+            'country'   => $quote->getBillingAddress()->getCountryId(),
         ];
     }
 

@@ -7,8 +7,9 @@ declare(strict_types=1);
 
 namespace Esparksinc\IvyPayment\Controller\Quote;
 
+use Esparksinc\IvyPayment\Helper\Discount as DiscountHelper;
 use Esparksinc\IvyPayment\Model\Config;
-use Esparksinc\IvyPayment\Model\Debug;
+use Esparksinc\IvyPayment\Model\Logger;
 use Magento\Directory\Model\RegionFactory;
 use Magento\Framework\App\Action\Action;
 use Magento\Framework\App\Action\Context;
@@ -18,9 +19,10 @@ use Magento\Framework\App\RequestInterface;
 use Magento\Framework\App\Request\InvalidRequestException;
 use Magento\Framework\Controller\Result\JsonFactory;
 use Magento\Framework\Serialize\Serializer\Json;
-use Magento\Quote\Model\Cart\CartTotalRepository;
 use Magento\Quote\Model\QuoteFactory;
+use Magento\Quote\Model\Cart\CartTotalRepository;
 use Magento\Quote\Model\QuoteRepository;
+use Magento\Quote\Model\ShippingMethodManagement;
 use Magento\Framework\Api\SearchCriteriaBuilder;
 
 class Index extends Action implements CsrfAwareActionInterface
@@ -34,7 +36,10 @@ class Index extends Action implements CsrfAwareActionInterface
     protected $regionFactory;
     protected $cartTotalRepository;
     protected $searchCriteriaBuilder;
-    private Debug $debug;
+    protected $logger;
+    protected $shippingMethodManagement;
+    protected $discountHelper;
+
 
     /**
      * @param Context $context
@@ -47,20 +52,25 @@ class Index extends Action implements CsrfAwareActionInterface
      * @param RegionFactory $regionFactory
      * @param CartTotalRepository $cartTotalRepository
      * @param SearchCriteriaBuilder $searchCriteriaBuilder
-     * @param Debug $debug
+     * @param Logger $logger
+     * @param ShippingMethodManagement $shippingMethodManagement
+     * @param DiscountHelper $discountHelper
      */
     public function __construct(
-        Context              $context,
-        Config               $config,
-        Json                 $json,
-        JsonFactory          $jsonFactory,
-        ScopeConfigInterface $scopeConfig,
-        QuoteFactory         $quoteFactory,
-        QuoteRepository      $quoteRepository,
-        RegionFactory        $regionFactory,
-        CartTotalRepository  $cartTotalRepository,
+        Context                  $context,
+        Config                   $config,
+        Json                     $json,
+        JsonFactory              $jsonFactory,
+        ScopeConfigInterface     $scopeConfig,
+        QuoteFactory             $quoteFactory,
+        QuoteRepository          $quoteRepository,
+        RegionFactory            $regionFactory,
+        CartTotalRepository      $cartTotalRepository,
         SearchCriteriaBuilder $searchCriteriaBuilder,
-        Debug                $debug
+        Logger                   $logger,
+        ShippingMethodManagement $shippingMethodManagement,
+        DiscountHelper           $discountHelper
+
     ) {
         $this->config = $config;
         $this->json = $json;
@@ -71,42 +81,20 @@ class Index extends Action implements CsrfAwareActionInterface
         $this->regionFactory = $regionFactory;
         $this->cartTotalRepository = $cartTotalRepository;
         $this->searchCriteriaBuilder = $searchCriteriaBuilder;
-        $this->debug = $debug;
+        $this->logger = $logger;
+        $this->shippingMethodManagement = $shippingMethodManagement;
+        $this->discountHelper = $discountHelper;
+
         parent::__construct($context);
     }
 
     public function execute()
     {
         $request = $this->getRequest();
+        $quoteReservedId = $request->getParam('reference');
         $customerData = $this->json->unserialize((string)$request->getContent());
 
-        $this->debug->log(
-            '[IvyPayment] Get Quote СustomerData:',
-            $customerData
-        );
-
-        if (key_exists('shipping', $customerData)) {
-            $countryId = $customerData['shipping']['shippingAddress']['country'];
-            $regionCode = $customerData['shipping']['shippingAddress']['region'];
-            $regionId = $this->regionFactory->create()->loadByCode($regionCode, $countryId)->getId();
-            $regionName = $this->regionFactory->create()->loadByCode($regionCode, $countryId)->getName();
-
-            $orderInfo = [
-                'address' => [
-                    'firstname' => $customerData['shipping']['shippingAddress']['firstName'],
-                    'lastname' => $customerData['shipping']['shippingAddress']['lastName'],
-                    'street' => $customerData['shipping']['shippingAddress']['line1'],
-                    'city' => $customerData['shipping']['shippingAddress']['city'],
-                    'country_id' => $customerData['shipping']['shippingAddress']['country'],
-                    'postcode' => $customerData['shipping']['shippingAddress']['zipCode'],
-                    'telephone' => $customerData['shopperPhone'],
-                    'region_id' => $regionId ? $regionId : NULL,
-                    'region' => $regionName ? $regionName : $regionCode
-                ],
-            ];
-        }
-
-        $quoteReservedId = $request->getParam('reference');
+        $this->logger->debugRequest($this, $quoteReservedId);
 
         $searchCriteria = $this->searchCriteriaBuilder->addFilter('reserved_order_id', $quoteReservedId)->create();
         $quotes = $this->quoteRepository->getList($searchCriteria)->getItems();
@@ -124,54 +112,96 @@ class Index extends Action implements CsrfAwareActionInterface
             $quote->setCustomerIsGuest(true);
         }
 
-        if (key_exists('shipping', $customerData)) {
-            $quote->getShippingAddress()->addData($orderInfo['address']);
-        }
-
-        $address = $quote->getShippingAddress();
-        $address->setCollectShippingRates(true);
-        $address->save();
         if (key_exists('discount', $customerData)) {
             $couponCode = $customerData['discount']['voucher'];
-            $quote->setCouponCode($couponCode)->collectTotals()->save();
+            $this->discountHelper->applyCouponCode($couponCode, $quote);
         }
-        $quote->save();
 
         $data = [];
 
         if (key_exists('shipping', $customerData)) {
+            $customerShippingData = $customerData['shipping']['shippingAddress'];
+
+            $countryId = $customerShippingData['country'];
+            $regionCode = $customerShippingData['region'];
+            $region = $this->regionFactory->create()->loadByCode($regionCode, $countryId);
+
+            $addressData = [
+                'firstname'  => $customerShippingData['firstName'],
+                'lastname'   => $customerShippingData['lastName'],
+                'street'     => $customerShippingData['line1'],
+                'city'       => $customerShippingData['city'],
+                'country_id' => $customerShippingData['country'],
+                'postcode'   => $customerShippingData['zipCode'],
+                'telephone'  => $customerData['shopperPhone'],
+                'region_id'  => $region->getId() ?: NULL,
+                'region'     => $region->getName() ?: $regionCode
+            ];
+
+            $address = $quote->getShippingAddress();
+            $address->addData($addressData);
+            $address->setCollectShippingRates(true);
+
             $shippingMethods = [];
-            $address->collectShippingRates();
-            $shippingRates = $address->getGroupedAllShippingRates();
-            foreach ($shippingRates as $code => $carrierRates) {
-                foreach ($carrierRates as $rate) {
+
+            if ($quote->isVirtual()) {
+                // if quote is virtual and shippingMethods is empty, add free shipping with the name per mail as the carrier
+                $shippingMethods[] = [
+                    'price'     => 0,
+                    'name'      => 'E-mail',
+                    'countries' => [$customerShippingData['country']],
+                    'reference' => 'email'
+                ];
+            } else {
+                /*
+                 * This method will trigger correct recollecting. Do not call $address->collectShippingRates() yourself.
+                 */
+                $estimatedMethods = $this->shippingMethodManagement->estimateByExtendedAddress($quote->getId(), $address);
+                /** @var \Magento\Quote\Model\Cart\ShippingMethod $method */
+                foreach ($estimatedMethods as $method) {
+                    $code = $method->getCarrierCode();
                     $shippingMethods[] = [
-                        'price' => $rate->getPrice(),
-                        'name' => $this->getCarrierName($code),
-                        'countries' => [$customerData['shipping']['shippingAddress']['country']],
-                        'reference' => $rate->getCode()
+                        'price'     => $method->getPriceInclTax(),
+                        'name'      => $this->getCarrierName($code),
+                        'countries' => [$customerShippingData['country']],
+                        'reference' => $method->getCarrierCode() . '_' . $method->getMethodCode()
                     ];
                 }
             }
+
+            $address->save();
+
             $data['shippingMethods'] = $shippingMethods;
         }
-        //Get discount
-        $totals = $this->cartTotalRepository->get($quote->getId());
-        $discountAmount = $totals->getDiscountAmount();
-        if ($discountAmount < 0) {
-            $totalNet = $quote->getBaseSubtotal() ? $quote->getBaseSubtotal() : 0;
-            $vat = $quote->getShippingAddress()->getBaseTaxAmount() ? $quote->getShippingAddress()->getBaseTaxAmount() : 0;
-            $total = $quote->getBaseGrandTotal() ? $quote->getBaseGrandTotal() : 0;
 
-            $discountAmount = abs($discountAmount);
-            $discount = ['amount' => $discountAmount];
-            $data['discount'] = $discount;
+        $quote->collectTotals();
+        $this->quoteRepository->save($quote);
+
+        //Get discount
+        $discountAmount = $this->discountHelper->getDiscountAmount($quote);
+        if ($discountAmount !== 0.0) {
+            $totals = $this->cartTotalRepository->get($quote->getId());
+
+            $shippingNet = $totals->getBaseShippingAmount();
+            $shippingVat = $totals->getBaseShippingTaxAmount();
+            $shippingTotal = $shippingNet + $shippingVat;
+
+            $total = $totals->getBaseGrandTotal() - $shippingTotal;
+            $vat = $totals->getBaseTaxAmount() - $shippingVat;
+            $totalNet = $total - $vat;
+
+            $data['discount'] = [
+                'amount'    => abs($discountAmount)
+            ];
             $data['price'] = [
-                'totalNet' => $totalNet,
-                'vat' => $vat,
-                'total' => $total
+                'totalNet'  => $totalNet,
+                'vat'       => $vat,
+                'total'     => $total
             ];
         }
+
+        $this->logger->debugApiAction($this, $quoteReservedId, 'Quote', $quote->getData());
+        $this->logger->debugApiAction($this, $quoteReservedId, 'Response', $data);
 
         $hash = hash_hmac(
             'sha256',
