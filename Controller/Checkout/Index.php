@@ -139,6 +139,14 @@ class Index extends Action
             ];
         }
 
+        $data = array_merge($data, [
+            'successCallbackUrl'    => $this->_url->getUrl('ivypayment/success'),
+            'errorCallbackUrl'      => $this->_url->getUrl('ivypayment/fail'),
+            'quoteCallbackUrl'      => $this->_url->getUrl('ivypayment/quote'),
+            'webhookUrl'            => $this->_url->getUrl('ivypayment/webhook'),
+            'completeCallbackUrl'   => $this->_url->getUrl('ivypayment/order/complete')
+        ]);
+
         $responseData = $this->apiHelper->requestApi($this, 'checkout/session/create', $data, $orderId,
             function ($exception) use ($quote) {
                 $this->errorResolver->tryResolveException($quote, $exception);
@@ -194,6 +202,7 @@ class Index extends Action
 
         $total = $totals->getBaseGrandTotal();
         $vat = $totals->getBaseTaxAmount();
+
         $totalNet = $total - $vat;
 
         $currency = $quote->getBaseCurrencyCode();

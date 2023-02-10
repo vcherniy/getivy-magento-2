@@ -44,6 +44,7 @@ class Complete extends Action implements CsrfAwareActionInterface
     protected $errorResolver;
     protected $totalsCollector;
 
+
     /**
      * @param Context $context
      * @param Config $config
@@ -77,6 +78,7 @@ class Complete extends Action implements CsrfAwareActionInterface
         Logger                  $logger,
         ErrorResolver           $errorResolver,
         TotalsCollector         $totalsCollector
+
     ) {
         $this->config = $config;
         $this->searchCriteriaBuilder = $searchCriteriaBuilder;
@@ -207,7 +209,7 @@ class Complete extends Action implements CsrfAwareActionInterface
 
     private function isValidRequest(RequestInterface $request)
     {
-         // return true;
+        // return true;
         $hash = hash_hmac(
             'sha256',
             $request->getContent(),

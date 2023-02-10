@@ -40,6 +40,7 @@ class Index extends Action implements CsrfAwareActionInterface
     protected $shippingMethodManagement;
     protected $discountHelper;
 
+
     /**
      * @param Context $context
      * @param Config $config
@@ -69,6 +70,7 @@ class Index extends Action implements CsrfAwareActionInterface
         Logger                   $logger,
         ShippingMethodManagement $shippingMethodManagement,
         DiscountHelper           $discountHelper
+
     ) {
         $this->config = $config;
         $this->json = $json;
@@ -82,6 +84,7 @@ class Index extends Action implements CsrfAwareActionInterface
         $this->logger = $logger;
         $this->shippingMethodManagement = $shippingMethodManagement;
         $this->discountHelper = $discountHelper;
+
         parent::__construct($context);
     }
 
@@ -223,7 +226,7 @@ class Index extends Action implements CsrfAwareActionInterface
 
     private function isValidRequest(RequestInterface $request)
     {
-         // return true;
+        // return true;
         $hash = hash_hmac(
             'sha256',
             $request->getContent(),
