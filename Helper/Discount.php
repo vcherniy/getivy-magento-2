@@ -70,6 +70,6 @@ class Discount extends \Magento\Framework\App\Helper\AbstractHelper
             $totals = $this->cartTotalRepository->get($quote->getId());
             $discountAmount = $totals->getDiscountAmount();
         }
-        return $discountAmount;
+        return (float)$discountAmount;
     }
 }
