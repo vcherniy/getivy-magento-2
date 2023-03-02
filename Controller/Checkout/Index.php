@@ -32,7 +32,6 @@ class Index extends Action
     protected $checkoutSession;
     protected $quoteRepository;
     protected $scopeConfig;
-    protected $urlBuilder;
     protected $logo;
     protected $config;
     protected $onePage;
@@ -49,6 +48,8 @@ class Index extends Action
      * @param RedirectFactory $resultRedirectFactory
      * @param Session $checkoutSession
      * @param CartRepositoryInterface $quoteRepository
+     * @param ScopeConfigInterface $scopeConfig
+     * @param Logo $logo
      * @param Config $config
      * @param Onepage $onePage
      * @param IvyFactory $ivy
@@ -65,7 +66,6 @@ class Index extends Action
         Session                 $checkoutSession,
         CartRepositoryInterface $quoteRepository,
         ScopeConfigInterface    $scopeConfig,
-        UrlInterface            $urlBuilder,
         Logo                    $logo,
         Config                  $config,
         Onepage                 $onePage,
@@ -81,7 +81,6 @@ class Index extends Action
         $this->checkoutSession = $checkoutSession;
         $this->quoteRepository = $quoteRepository;
         $this->scopeConfig = $scopeConfig;
-        $this->urlBuilder = $urlBuilder;
         $this->logo = $logo;
         $this->config = $config;
         $this->onePage = $onePage;
@@ -273,7 +272,7 @@ class Index extends Action
         );
 
         if ($path) {
-            $shopLogo = $this->urlBuilder
+            $shopLogo = $this->_url
                     ->getBaseUrl(['_type' => \Magento\Framework\UrlInterface::URL_TYPE_MEDIA]) .'logo/'. $path;
         } else{
             $shopLogo = $this->logo->getLogoSrc();
