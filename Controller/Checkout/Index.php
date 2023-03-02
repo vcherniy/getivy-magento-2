@@ -17,10 +17,13 @@ use Magento\Checkout\Model\Session;
 use Magento\Checkout\Model\Type\Onepage;
 use Magento\Framework\App\Action\Action;
 use Magento\Framework\App\Action\Context;
+use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\Controller\Result\JsonFactory;
 use Magento\Framework\Controller\Result\RedirectFactory;
+use Magento\Framework\UrlInterface;
 use Magento\Quote\Api\CartRepositoryInterface;
 use Magento\Quote\Model\Cart\CartTotalRepository;
+use Magento\Theme\Block\Html\Header\Logo;
 
 class Index extends Action
 {
@@ -28,6 +31,8 @@ class Index extends Action
     protected $jsonFactory;
     protected $checkoutSession;
     protected $quoteRepository;
+    protected $scopeConfig;
+    protected $logo;
     protected $config;
     protected $onePage;
     protected $ivy;
@@ -43,6 +48,8 @@ class Index extends Action
      * @param RedirectFactory $resultRedirectFactory
      * @param Session $checkoutSession
      * @param CartRepositoryInterface $quoteRepository
+     * @param ScopeConfigInterface $scopeConfig
+     * @param Logo $logo
      * @param Config $config
      * @param Onepage $onePage
      * @param IvyFactory $ivy
@@ -58,6 +65,8 @@ class Index extends Action
         RedirectFactory         $resultRedirectFactory,
         Session                 $checkoutSession,
         CartRepositoryInterface $quoteRepository,
+        ScopeConfigInterface    $scopeConfig,
+        Logo                    $logo,
         Config                  $config,
         Onepage                 $onePage,
         IvyFactory              $ivy,
@@ -65,12 +74,14 @@ class Index extends Action
         Logger                  $logger,
         ErrorResolver           $errorResolver,
         ApiHelper               $apiHelper,
-        DiscountHelper           $discountHelper
+        DiscountHelper          $discountHelper
     ) {
         $this->jsonFactory = $jsonFactory;
         $this->resultRedirectFactory = $resultRedirectFactory;
         $this->checkoutSession = $checkoutSession;
         $this->quoteRepository = $quoteRepository;
+        $this->scopeConfig = $scopeConfig;
+        $this->logo = $logo;
         $this->config = $config;
         $this->onePage = $onePage;
         $this->ivy = $ivy;
@@ -144,7 +155,8 @@ class Index extends Action
             'errorCallbackUrl'      => $this->_url->getUrl('ivypayment/fail'),
             'quoteCallbackUrl'      => $this->_url->getUrl('ivypayment/quote'),
             'webhookUrl'            => $this->_url->getUrl('ivypayment/webhook'),
-            'completeCallbackUrl'   => $this->_url->getUrl('ivypayment/order/complete')
+            'completeCallbackUrl'   => $this->_url->getUrl('ivypayment/order/complete'),
+            'shopLogo'              => $this->getLogoSrc()
         ]);
 
         $responseData = $this->apiHelper->requestApi($this, 'checkout/session/create', $data, $orderId,
@@ -250,6 +262,22 @@ class Index extends Action
             'zipCode'   => $quote->getBillingAddress()->getPostcode(),
             'country'   => $quote->getBillingAddress()->getCountryId(),
         ];
+    }
+
+    protected function getLogoSrc(): string
+    {
+        $path = $this->scopeConfig->getValue(
+            'design/header/logo_src',
+            \Magento\Store\Model\ScopeInterface::SCOPE_STORE
+        );
+
+        if ($path) {
+            $shopLogo = $this->_url
+                    ->getBaseUrl(['_type' => \Magento\Framework\UrlInterface::URL_TYPE_MEDIA]) .'logo/'. $path;
+        } else{
+            $shopLogo = $this->logo->getLogoSrc();
+        }
+        return $shopLogo;
     }
 
     private function getPluginVersion(): string {

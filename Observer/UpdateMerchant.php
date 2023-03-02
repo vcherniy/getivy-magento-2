@@ -99,4 +99,3 @@ class UpdateMerchant implements ObserverInterface
         return $this;
     }
 }
-?>
