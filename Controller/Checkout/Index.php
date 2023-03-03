@@ -267,13 +267,13 @@ class Index extends Action
     protected function getLogoSrc(): string
     {
         $path = $this->scopeConfig->getValue(
-            'design/header/logo_src',
+            'payment/ivy/frontend_settings/custom_logo',
             \Magento\Store\Model\ScopeInterface::SCOPE_STORE
         );
 
         if ($path) {
             $shopLogo = $this->_url
-                    ->getBaseUrl(['_type' => \Magento\Framework\UrlInterface::URL_TYPE_MEDIA]) .'logo/'. $path;
+                    ->getBaseUrl(['_type' => \Magento\Framework\UrlInterface::URL_TYPE_MEDIA]) .'ivy/logo/'. $path;
         } else{
             $shopLogo = $this->logo->getLogoSrc();
         }
