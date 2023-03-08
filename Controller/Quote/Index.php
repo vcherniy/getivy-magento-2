@@ -91,21 +91,13 @@ class Index extends Action implements CsrfAwareActionInterface
     public function execute()
     {
         $request = $this->getRequest();
-        $quoteReservedId = $request->getParam('reference');
+        $magentoOrderId = $request->getParam('reference');
         $customerData = $this->json->unserialize((string)$request->getContent());
 
-        $this->logger->debugRequest($this, $quoteReservedId);
+        $this->logger->debugRequest($this, $magentoOrderId);
 
-        $searchCriteria = $this->searchCriteriaBuilder->addFilter('reserved_order_id', $quoteReservedId)->create();
-        $quotes = $this->quoteRepository->getList($searchCriteria)->getItems();
-
-        if (count($quotes) === 1) {
-            $quote = array_values($quotes)[0];
-        } else {
-            $quote = $this->quoteFactory->create()->load($quoteReservedId, 'reserved_order_id');
-        }
-
-        $quote = $this->quoteRepository->get($quote->getId());
+        $quoteId = $customerData['metadata']['quote_id'] ?? $this->getQuoteId($magentoOrderId);
+        $quote = $this->quoteRepository->get($quoteId);
 
         if (!$quote->getCustomerId()) {
             $quote->setCustomerEmail($customerData['shopperEmail']);
@@ -200,8 +192,8 @@ class Index extends Action implements CsrfAwareActionInterface
             ];
         }
 
-        $this->logger->debugApiAction($this, $quoteReservedId, 'Quote', $quote->getData());
-        $this->logger->debugApiAction($this, $quoteReservedId, 'Response', $data);
+        $this->logger->debugApiAction($this, $magentoOrderId, 'Quote', $quote->getData());
+        $this->logger->debugApiAction($this, $magentoOrderId, 'Response', $data);
 
         $hash = hash_hmac(
             'sha256',
@@ -248,5 +240,19 @@ class Index extends Action implements CsrfAwareActionInterface
             return $name;
         }
         return $carrierCode;
+    }
+
+    private function getQuoteId(string $reservedOrderId): int
+    {
+        $searchCriteria = $this->searchCriteriaBuilder->addFilter('reserved_order_id', $reservedOrderId)->create();
+        $quotes = $this->quoteRepository->getList($searchCriteria)->getItems();
+
+        if (count($quotes) === 1) {
+            $quote = array_values($quotes)[0];
+        } else {
+            $quote = $this->quoteFactory->create()->load($reservedOrderId, 'reserved_order_id');
+        }
+
+        return $quote->getId();
     }
 }
