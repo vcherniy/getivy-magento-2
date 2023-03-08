@@ -112,51 +112,42 @@ class Index extends Action
 
         $this->quoteRepository->save($quote);
 
-        $price = $this->getPrice($quote, $express);
-
-        $ivyLineItems = $this->getLineItems($quote);
-
-        $shippingMethods = $quote->isVirtual() ? [] : $this->getShippingMethod($quote);
-
-        $billingAddress = $this->getBillingAddress($quote);
-
-        $mcc = $this->config->getMcc();
-
-        $plugin = $this->getPluginVersion();
-
         if($express) {
             $phone = ['phone' => true];
             $data = [
                 'express' => true,
-                'referenceId' => $orderId,
-                'category' => $mcc,
-                'price' => $price,
-                'lineItems' => $ivyLineItems,
                 'required' => $phone,
-                'plugin' => $plugin,
             ];
         } else {
             $prefill = ["email" => $quote->getBillingAddress()->getEmail()];
+            $shippingMethods = $quote->isVirtual() ? [] : $this->getShippingMethod($quote);
+            $billingAddress = $this->getBillingAddress($quote);
+
             $data = [
                 'handshake' => true,
-                'referenceId' => $orderId,
-                'category' => $mcc,
-                'price' => $price,
-                'lineItems' => $ivyLineItems,
-                'shippingMethods' =>  $shippingMethods,
+                'shippingMethods' => $shippingMethods,
                 'billingAddress' => $billingAddress,
                 'prefill' => $prefill,
-                'plugin' => $plugin,
             ];
         }
 
         $data = array_merge($data, [
+            'referenceId'           => $orderId,
+            'category'              => $this->config->getMcc(),
+            'price'                 => $this->getPrice($quote, $express),
+            'lineItems'             => $this->getLineItems($quote),
+            'plugin'                => $this->getPluginVersion(),
+
+            "metadata"              => [
+                'quote_id'          => $quote->getId()
+            ],
+
             'successCallbackUrl'    => $this->_url->getUrl('ivypayment/success'),
             'errorCallbackUrl'      => $this->_url->getUrl('ivypayment/fail'),
             'quoteCallbackUrl'      => $this->_url->getUrl('ivypayment/quote'),
             'webhookUrl'            => $this->_url->getUrl('ivypayment/webhook'),
             'completeCallbackUrl'   => $this->_url->getUrl('ivypayment/order/complete'),
-            'shopLogo'              => $this->getLogoSrc()
+            'shopLogo'              => $this->getLogoSrc(),
         ]);
 
         $responseData = $this->apiHelper->requestApi($this, 'checkout/session/create', $data, $orderId,
