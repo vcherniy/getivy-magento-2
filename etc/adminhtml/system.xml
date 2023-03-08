@@ -4,7 +4,7 @@
 		<section id="payment" sortOrder="1000" showInWebsite="1" showInStore="1" showInDefault="1" translate="label">
 			<group id="ivy" sortOrder="10" showInWebsite="1" showInStore="1" showInDefault="1" translate="label">
 				<label>Ivy Payment</label>
-				<field id="active" type="select" sortOrder="10" showInWebsite="1" showInStore="1" showInDefault="1" translate="label">
+				<field id="active" type="select" sortOrder="10" showInWebsite="1" showInStore="0" showInDefault="1" translate="label">
 					<label>Enabled</label>
 					<source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
 				</field>
@@ -15,14 +15,14 @@
                         <field id="active">1</field>
                     </depends>
 				</field>
-				<field id="sandbox" type="select" sortOrder="60" showInWebsite="1" showInStore="1" showInDefault="1" translate="label">
+				<field id="sandbox" type="select" sortOrder="60" showInWebsite="1" showInStore="0" showInDefault="1" translate="label">
 					<label>Activate Sand Box</label>
 					<source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
 					<depends>
                         <field id="active">1</field>
                     </depends>
 				</field>
-				<field id="sandbox_api_key" type="text" sortOrder="70" showInWebsite="1" showInStore="1" showInDefault="1" translate="label">
+				<field id="sandbox_api_key" type="text" sortOrder="70" showInWebsite="1" showInStore="0" showInDefault="1" translate="label">
 					<label>Sandbox Ivy API Key</label>
 					<validate>required-entry</validate>
 					<depends>
@@ -30,7 +30,7 @@
 						<field id="sandbox">1</field>
                     </depends>
 				</field>
-				<field id="sandbox_webhook_secret" type="text" sortOrder="70" showInWebsite="1" showInStore="1" showInDefault="1" translate="label">
+				<field id="sandbox_webhook_secret" type="text" sortOrder="70" showInWebsite="1" showInStore="0" showInDefault="1" translate="label">
 					<label>Sandbox webhook signing secret</label>
 					<validate>required-entry</validate>
 					<depends>
@@ -38,12 +38,12 @@
 						<field id="sandbox">1</field>
                     </depends>
 				</field>
-				<field id="debug" translate="label" type="select" sortOrder="80" showInDefault="1" showInWebsite="1" showInStore="0">
+				<field id="debug" translate="label" type="select" sortOrder="80" showInDefault="0" showInWebsite="1" showInStore="0">
 					<label>Debug</label>
 					<source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
 					<comment>Log file path: var/log/ivy-api.log</comment>
 				</field>
-				<field id="live_api_key" type="text" sortOrder="70" showInWebsite="1" showInStore="1" showInDefault="1" translate="label">
+				<field id="live_api_key" type="text" sortOrder="70" showInWebsite="1" showInStore="0" showInDefault="1" translate="label">
 					<label>Ivy API Key</label>
 					<validate>required-entry</validate>
 					<depends>
@@ -51,7 +51,7 @@
 						<field id="sandbox">0</field>
                     </depends>
 				</field>
-				<field id="webhook_secret" type="text" sortOrder="70" showInWebsite="1" showInStore="1" showInDefault="1" translate="label">
+				<field id="webhook_secret" type="text" sortOrder="70" showInWebsite="1" showInStore="0" showInDefault="1" translate="label">
 					<label>Webhook signing secret</label>
 					<validate>required-entry</validate>
 					<depends>
@@ -87,6 +87,15 @@
 						<source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
 						<label>Show button on product page</label>
                 	</field>
+                    <field id="custom_logo" translate="label comment" type="image" sortOrder="6" showInDefault="1" showInWebsite="1" showInStore="1">
+                        <label>Custom Store Logo</label>
+                        <backend_model>Magento\Config\Model\Config\Backend\Image</backend_model>
+                        <upload_dir config="system/filesystem/media" scope_info="1">ivy/logo</upload_dir>
+                        <base_url type="media" scope_info="1">ivy/logo</base_url>
+                        <comment>
+                            <![CDATA[Logo for Ivy only. If empty, default will be used.<br />(jpeg, gif, png)]]>
+                        </comment>
+                    </field>
                 </group>
 			</group>
 		</section>
