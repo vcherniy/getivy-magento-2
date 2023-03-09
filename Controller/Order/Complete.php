@@ -107,7 +107,10 @@ class Complete extends Action implements CsrfAwareActionInterface
         $frontendUrl = $this->storeManager->getStore()->getBaseUrl();
         $redirectUrl = $frontendUrl.'ivypayment/complete/success';
 
-        $quoteId = $customerData['metadata']['quote_id'] ?? $this->getQuoteId($magentoOrderId);
+        $quoteId = $customerData['metadata']['quote_id'] ?? null;
+        if (!$quoteId) {
+            $quoteId = $this->getQuoteId($magentoOrderId);
+        }
         $quote = $this->quoteRepository->get($quoteId);
 
         $shippingAddress = $quote->getShippingAddress();

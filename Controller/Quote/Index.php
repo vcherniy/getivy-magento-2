@@ -96,7 +96,10 @@ class Index extends Action implements CsrfAwareActionInterface
 
         $this->logger->debugRequest($this, $magentoOrderId);
 
-        $quoteId = $customerData['metadata']['quote_id'] ?? $this->getQuoteId($magentoOrderId);
+        $quoteId = $customerData['metadata']['quote_id'] ?? null;
+        if (!$quoteId) {
+            $quoteId = $this->getQuoteId($magentoOrderId);
+        }
         $quote = $this->quoteRepository->get($quoteId);
 
         if (!$quote->getCustomerId()) {
