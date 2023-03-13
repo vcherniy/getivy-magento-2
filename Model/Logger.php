@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Esparksinc\IvyPayment\Model;
 
+use Magento\Framework\App\Action\Action;
 use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\Logger\Monolog;
 use Magento\Framework\Serialize\Serializer\Json;
@@ -40,26 +41,35 @@ class Logger extends Monolog
         return false;
     }
 
+    /**
+     * @param Action|string $initiatorName
+     * @param string $orderId
+     * @param string $message
+     * @param array $context
+     * @return void
+     */
     public function debugApiAction(
-        \Magento\Framework\App\Action\Action $controller,
+        $initiatorName,
         string $orderId,
         string $message,
         array $context = []
     ) {
-        /** @var \Magento\Framework\App\Request\Http $request */
-        $request = $controller->getRequest();
-        $actionId = $request->getControllerName() . '_' . $request->getActionName();
+        if ($initiatorName instanceof Action) {
+            /** @var \Magento\Framework\App\Request\Http $request */
+            $request = $initiatorName->getRequest();
+            $initiatorName = $request->getControllerName() . '_' . $request->getActionName();
+        }
 
         $message = sprintf('#%s %s: %s',
             $orderId,
-            $actionId,
+            $initiatorName,
             $message
         );
         $this->debug($message, $context);
     }
 
     public function debugRequest(
-        \Magento\Framework\App\Action\Action $controller,
+        Action $controller,
         string $orderId
     ) {
         /** @var \Magento\Framework\App\Request\Http $request */
