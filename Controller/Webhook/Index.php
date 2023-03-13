@@ -144,12 +144,19 @@ class Index extends Action implements CsrfAwareActionInterface
         $magentoOrderId = $arrData['payload']['referenceId'];
         $orderdetails = $this->order->create()->loadByIncrementId($magentoOrderId);
 
-        foreach ($orderdetails->getInvoiceCollection() as $invoice)
-        {
-            $invoiceId = $invoice->getId();
+        /*
+         * If the order/complete callback was unsuccessful then the order with the reserved id may not have been created.
+         * Ivy sends request to refund the order in this case. So we should check if we have anything to refund.
+         */
+        if (!$orderdetails->getId()) {
+            return;
         }
 
-        $this->refund->execute($invoiceId,[],true);
+        $invoice = $orderdetails->getInvoiceCollection()->getFirstItem();
+        $invoiceId = $invoice->getId();
+        if ($invoiceId) {
+            $this->refund->execute($invoiceId,[],true);
+        }
     }
 
     private function setOrderStatus($arrData,$status)
