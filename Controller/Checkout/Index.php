@@ -14,27 +14,22 @@ use Esparksinc\IvyPayment\Model\Logger;
 use Esparksinc\IvyPayment\Model\ErrorResolver;
 use Esparksinc\IvyPayment\Model\IvyFactory;
 use Magento\Checkout\Model\Session;
-use Magento\Checkout\Model\Type\Onepage;
 use Magento\Framework\App\Action\Action;
 use Magento\Framework\App\Action\Context;
 use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\Controller\Result\JsonFactory;
-use Magento\Framework\Controller\Result\RedirectFactory;
-use Magento\Framework\UrlInterface;
 use Magento\Quote\Api\CartRepositoryInterface;
 use Magento\Quote\Model\Cart\CartTotalRepository;
 use Magento\Theme\Block\Html\Header\Logo;
 
 class Index extends Action
 {
-    protected $resultRedirectFactory;
     protected $jsonFactory;
     protected $checkoutSession;
     protected $quoteRepository;
     protected $scopeConfig;
     protected $logo;
     protected $config;
-    protected $onePage;
     protected $ivy;
     protected $cartTotalRepository;
     protected $logger;
@@ -45,13 +40,11 @@ class Index extends Action
     /**
      * @param Context $context
      * @param JsonFactory $jsonFactory
-     * @param RedirectFactory $resultRedirectFactory
      * @param Session $checkoutSession
      * @param CartRepositoryInterface $quoteRepository
      * @param ScopeConfigInterface $scopeConfig
      * @param Logo $logo
      * @param Config $config
-     * @param Onepage $onePage
      * @param IvyFactory $ivy
      * @param CartTotalRepository $cartTotalRepository
      * @param Logger $logger
@@ -62,13 +55,11 @@ class Index extends Action
     public function __construct(
         Context                 $context,
         JsonFactory             $jsonFactory,
-        RedirectFactory         $resultRedirectFactory,
         Session                 $checkoutSession,
         CartRepositoryInterface $quoteRepository,
         ScopeConfigInterface    $scopeConfig,
         Logo                    $logo,
         Config                  $config,
-        Onepage                 $onePage,
         IvyFactory              $ivy,
         CartTotalRepository     $cartTotalRepository,
         Logger                  $logger,
@@ -77,13 +68,11 @@ class Index extends Action
         DiscountHelper          $discountHelper
     ) {
         $this->jsonFactory = $jsonFactory;
-        $this->resultRedirectFactory = $resultRedirectFactory;
         $this->checkoutSession = $checkoutSession;
         $this->quoteRepository = $quoteRepository;
         $this->scopeConfig = $scopeConfig;
         $this->logo = $logo;
         $this->config = $config;
-        $this->onePage = $onePage;
         $this->ivy = $ivy;
         $this->cartTotalRepository = $cartTotalRepository;
         $this->logger = $logger;
@@ -92,6 +81,7 @@ class Index extends Action
         $this->discountHelper = $discountHelper;
         parent::__construct($context);
     }
+
     public function execute()
     {
         $express = $this->getRequest()->getParam('express');
