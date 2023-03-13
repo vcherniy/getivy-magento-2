@@ -39,7 +39,7 @@ class Api extends \Magento\Framework\App\Helper\AbstractHelper
     }
 
     /**
-     * @param Action $controller
+     * @param Action|string $initiatorName
      * @param string $path
      * @param array $data
      * @param $orderId
@@ -47,7 +47,7 @@ class Api extends \Magento\Framework\App\Helper\AbstractHelper
      * @return array
      */
     public function requestApi(
-        Action $controller,
+        $initiatorName,
         string $path,
         array $data,
         $orderId,
@@ -68,7 +68,7 @@ class Api extends \Magento\Framework\App\Helper\AbstractHelper
             'body' => $jsonContent,
         ];
 
-        $this->logger->debugApiAction($controller, $orderId, 'Sent data', $data);
+        $this->logger->debugApiAction($initiatorName, $orderId, 'Sent data', $data);
 
         try {
             $response = $client->post($path, $options);
@@ -78,12 +78,12 @@ class Api extends \Magento\Framework\App\Helper\AbstractHelper
             $exceptionCallback($exception);
 
             $errorData = $this->errorResolver->formatErrorData($exception);
-            $this->logger->debugApiAction($controller, $orderId, 'Got API response exception',
+            $this->logger->debugApiAction($initiatorName, $orderId, 'Got API response exception',
                 [$errorData]
             );
             throw $exception;
         } finally {
-            $this->logger->debugApiAction($controller, $orderId, 'Got API response status', [$response->getStatusCode()]);
+            $this->logger->debugApiAction($initiatorName, $orderId, 'Got API response status', [$response->getStatusCode()]);
         }
 
         $data = [];
@@ -94,7 +94,7 @@ class Api extends \Magento\Framework\App\Helper\AbstractHelper
                 // do nothing
             }
 
-            $this->logger->debugApiAction($controller, $orderId, 'Got API response', $data);
+            $this->logger->debugApiAction($initiatorName, $orderId, 'Got API response', $data);
         }
         return $data;
     }
