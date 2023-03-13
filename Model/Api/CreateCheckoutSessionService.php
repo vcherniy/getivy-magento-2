@@ -270,6 +270,6 @@ class CreateCheckoutSessionService
         $composerJsonData = $directoryRead->readFile('composer.json');
         $data = $this->jsonSerializer->unserialize($composerJsonData);
 
-        return !empty($data->version) ? 'm2-'. $data['version'] : __('Read error!');
+        return !empty($data['version']) ? 'm2-'. $data['version'] : __('Read error!');
     }
 }

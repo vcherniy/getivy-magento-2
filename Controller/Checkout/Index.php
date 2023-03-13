@@ -47,7 +47,7 @@ class Index extends Action
      */
     public function execute()
     {
-        $express = $this->getRequest()->getParam('express');
+        $express = (bool)$this->getRequest()->getParam('express');
         $quote = $this->checkoutSession->getQuote();
 
         $responseData = $this->createCheckoutSessionService->execute($quote, $express, $this);
