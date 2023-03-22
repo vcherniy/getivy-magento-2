@@ -88,6 +88,7 @@ class Index extends Action implements CsrfAwareActionInterface
                         $this->orderRefund($arrData);
                     }
                     break;
+                case 'waiting_for_payment':
                 case 'paid':
                     if ($orderdetails->canInvoice()) {
                         $this->createInvoice($arrData);
