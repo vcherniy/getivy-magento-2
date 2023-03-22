@@ -88,13 +88,7 @@ class Index extends Action implements CsrfAwareActionInterface
                         $this->orderRefund($arrData);
                     }
                     break;
-                case 'authorised':
-                    if ($orderdetails->canInvoice()) {
-                        $this->createInvoice($arrData);
-                    } else{
-                        $this->setOrderStatus($arrData,'payment_authorised');
-                    }
-                    break;
+                case 'waiting_for_payment':
                 case 'paid':
                     if ($orderdetails->canInvoice()) {
                         $this->createInvoice($arrData);
@@ -102,10 +96,9 @@ class Index extends Action implements CsrfAwareActionInterface
                         $this->setOrderStatus($arrData,'processing');
                     }
                     break;
-                case 'processing':
-                    if ($orderdetails->canInvoice()) {
-                        $this->createInvoice($arrData);
-                    }
+                case 'refunded':
+                case 'in_refund':
+                    $this->orderRefund($arrData);
                     break;
             }
         }
