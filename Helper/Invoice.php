@@ -67,7 +67,8 @@ class Invoice extends \Magento\Framework\App\Helper\AbstractHelper
         }
 
         if ($order->getState() === 'processing') {
-            $order->setStatus('payment_authorised');
+//            $order->setStatus('payment_authorised');
+            $order->setStatus('processing');
             $order->save();
         }
     }

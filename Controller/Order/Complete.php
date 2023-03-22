@@ -104,9 +104,6 @@ class Complete extends Action implements CsrfAwareActionInterface
 
         $this->logger->debugRequest($this, $magentoOrderId);
 
-        $frontendUrl = $this->storeManager->getStore()->getBaseUrl();
-        $redirectUrl = $frontendUrl.'ivypayment/complete/success';
-
         $quoteId = $customerData['metadata']['quote_id'] ?? null;
         if (!$quoteId) {
             $quoteId = $this->getQuoteId($magentoOrderId);
@@ -122,18 +119,16 @@ class Complete extends Action implements CsrfAwareActionInterface
         if (!$quote->getBillingAddress()->getFirstname())
         {
             $customerBillingData = $customerData['billingAddress'];
-            $billing = [
-                'address' =>[
-                    'firstname'  => $customerBillingData['firstName'],
-                    'lastname'   => $customerBillingData['lastName'],
-                    'street'     => $customerBillingData['line1'],
-                    'city'       => $customerBillingData['city'],
-                    'country_id' => $customerBillingData['country'],
-                    'postcode'   => $customerBillingData['zipCode'],
-                    'telephone'  => $shippingAddress->getTelephone()
-                ]
+            $billingAddressData = [
+                'firstname'  => $customerBillingData['firstName'],
+                'lastname'   => $customerBillingData['lastName'],
+                'street'     => $customerBillingData['line1'],
+                'city'       => $customerBillingData['city'],
+                'country_id' => $customerBillingData['country'],
+                'postcode'   => $customerBillingData['zipCode'],
+                'telephone'  => $shippingAddress->getTelephone()
             ];
-            $quote->getBillingAddress()->addData($billing['address']);
+            $quote->getBillingAddress()->addData($billingAddressData);
         }
 
         $quote->setCustomerFirstname($quote->getBillingAddress()->getFirstname());
@@ -186,6 +181,9 @@ class Complete extends Action implements CsrfAwareActionInterface
             $this->errorResolver->forceReserveOrderId($quote);
             return $this->jsonFactory->create()->setHttpResponseCode(400)->setData([]);
         }
+
+        $frontendUrl = $this->storeManager->getStore()->getBaseUrl();
+        $redirectUrl = $frontendUrl.'ivypayment/complete/success';
 
         $data = [
             'redirectUrl' => $redirectUrl
