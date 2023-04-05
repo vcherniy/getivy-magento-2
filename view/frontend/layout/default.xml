@@ -12,7 +12,7 @@
         </referenceBlock>
 
 		<referenceContainer name="minicart.addons">
-            <block class="Magento\Checkout\Block\Cart\Sidebar" name="ivy_mini" template="Esparksinc_IvyPayment::minicart/ivypayment-button.phtml">
+            <block class="Magento\Checkout\Block\Cart\Sidebar" name="ivy_mini" template="Esparksinc_IvyPayment::minicart/ivypayment-button.phtml" ifconfig="payment/ivy/active">
                 <arguments>
 					<argument name="banner_data" xsi:type="object">Esparksinc\IvyPayment\ViewModel\Banner</argument>
 				</arguments>
