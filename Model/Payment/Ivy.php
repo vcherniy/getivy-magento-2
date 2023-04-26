@@ -15,8 +15,8 @@ class Ivy extends \Magento\Payment\Model\Method\AbstractMethod
     protected $_code = "ivy";
     protected $_isGateway = true;
     protected $_canCapture = true;
-    protected $_canUseInternal   = false;
-    protected $_canRefund   = true;
+    protected $_canUseInternal = false;
+    protected $_canRefund = true;
     protected $_canRefundInvoicePartial = true;
 
     protected $config;
@@ -66,7 +66,7 @@ class Ivy extends \Magento\Payment\Model\Method\AbstractMethod
         }
 
         $data = [
-            'referenceId' => $payment->getCreditmemo()->getInvoice()->getOrder()->getIncrementId,
+            'referenceId' => $payment->getCreditmemo()->getOrder()->getId(),
             'amount' => $amount,
         ];
 
@@ -94,9 +94,8 @@ class Ivy extends \Magento\Payment\Model\Method\AbstractMethod
 
     public function canUseForCurrency($currencyCode)
     {
-        $currencies = ['EUR','BGN','HRK','CZK','DKK','GIP','HUF','ISK','CHF','NOK','PLN','RON','SEK','GBP'];
-        if(in_array($currencyCode,$currencies))
-        {
+        $currencies = ['EUR'];
+        if (in_array($currencyCode, $currencies)) {
             return true;
         }
         return false;
@@ -107,4 +106,3 @@ class Ivy extends \Magento\Payment\Model\Method\AbstractMethod
         return $this->_canRefundInvoicePartial;
     }
 }
-

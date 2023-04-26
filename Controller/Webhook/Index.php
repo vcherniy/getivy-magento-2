@@ -94,6 +94,9 @@ class Index extends Action implements CsrfAwareActionInterface
                         $this->setOrderStatus($arrData,'processing');
                     }
                     break;
+                case 'refunded':
+                    $this->orderRefund($arrData);
+                break;
             }
         }
     }
@@ -136,6 +139,11 @@ class Index extends Action implements CsrfAwareActionInterface
          * Ivy sends request to refund the order in this case. So we should check if we have anything to refund.
          */
         if (!$orderdetails->getId()) {
+            return;
+        }
+
+        // STATUS_REFUNDED = 8
+        if ($orderdetails->getStatusId() === 8) {
             return;
         }
 
