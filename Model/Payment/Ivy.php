@@ -60,16 +60,13 @@ class Ivy extends \Magento\Payment\Model\Method\AbstractMethod
 
     public function refund(\Magento\Payment\Model\InfoInterface $payment, $amount)
     {
-        $writer = new \Zend_Log_Writer_Stream(BP . '/var/log/testlog.log');
-$logger = new \Zend_Log();
-$logger->addWriter($writer);
-$logger->info('testt');
+
         if (!$this->canRefund()) {
             throw new \Magento\Framework\Exception\LocalizedException(__('The refund action is not available.'));
         }
-        $logger->info($payment->getCreditmemo()->getInvoice()->getTransactionId());
+
         $data = [
-            'orderId' => $payment->getCreditmemo()->getInvoice()->getTransactionId(),
+            'referenceId' => $payment->getCreditmemo()->getInvoice()->getOrder()->getIncrementId,
             'amount' => $amount,
         ];
 
@@ -89,14 +86,7 @@ $logger->info('testt');
 
         $response = $client->post('merchant/payment/refund', $options);
 
-        if ($response->getStatusCode() === 200) {
-            $arrData = $this->json->unserialize((string)$response->getBody());
-            if($arrData['refundStatus'] == 'succeeded')
-            {
-                
-            }
-        }
-        else{
+        if ($response->getStatusCode() !== 200) {
             throw new \Magento\Framework\Exception\LocalizedException(__('Something went wrong'));
         }
         return $this;

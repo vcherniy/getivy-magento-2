@@ -80,12 +80,10 @@ class Index extends Action implements CsrfAwareActionInterface
         if($arrData['type'] === 'order_updated' || $arrData['type'] === 'order_created')
         {
             switch ($arrData['payload']['status']) {
-                case 'failed':
                 case 'canceled':
-                    if ($orderdetails->canInvoice()) {
+                    $isIvy = $this->isIvyPayment($orderdetails->getPayment());
+                    if ($isIvy === true && $orderdetails->canInvoice()) {
                         $this->orderManagement->cancel($orderId);
-                    } else{
-                        $this->orderRefund($arrData);
                     }
                     break;
                 case 'waiting_for_payment':
@@ -95,10 +93,6 @@ class Index extends Action implements CsrfAwareActionInterface
                     } else{
                         $this->setOrderStatus($arrData,'processing');
                     }
-                    break;
-                case 'refunded':
-                case 'in_refund':
-                    $this->orderRefund($arrData);
                     break;
             }
         }
@@ -145,10 +139,17 @@ class Index extends Action implements CsrfAwareActionInterface
             return;
         }
 
-        $invoice = $orderdetails->getInvoiceCollection()->getFirstItem();
-        $invoiceId = $invoice->getId();
-        if ($invoiceId) {
-            $this->refund->execute($invoiceId,[],true);
+        $invoices = $orderdetails->getInvoiceCollection();
+
+        foreach ($invoices as $invoice) {
+
+            if ($this->isIvyPayment($invoice->getOrder()->getPayment())) {
+                $invoiceId = $invoice->getId();
+    
+                if ($invoiceId) {
+                    $this->refund->execute($invoiceId,[],true);
+                }
+            }
         }
     }
 
@@ -171,5 +172,10 @@ class Index extends Action implements CsrfAwareActionInterface
         $orderdetails = $this->order->create()->loadByIncrementId($magentoOrderId);
 
         $this->invoiceHelper->createInvoice($orderdetails, $ivyOrderId);
+    }
+
+    private function isIvyPayment($payment) {
+        $code = $payment->MethodInstance->getCode();
+        return $code === 'ivy';
     }
 }
