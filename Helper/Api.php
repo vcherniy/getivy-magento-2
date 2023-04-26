@@ -12,6 +12,7 @@ use Esparksinc\IvyPayment\Model\ErrorResolver;
 use Esparksinc\IvyPayment\Model\Logger;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\ClientException;
+use GuzzleHttp\Exception\GuzzleException;
 use GuzzleHttp\Exception\ServerException;
 use Magento\Framework\App\Action\Action;
 use Magento\Framework\App\Helper\Context;
@@ -23,6 +24,7 @@ class Api extends \Magento\Framework\App\Helper\AbstractHelper
     protected $config;
     protected $logger;
     protected $errorResolver;
+    protected $lastStatusCode = 0;
 
     public function __construct(
         Json            $json,
@@ -42,16 +44,16 @@ class Api extends \Magento\Framework\App\Helper\AbstractHelper
      * @param Action|string $initiatorName
      * @param string $path
      * @param array $data
-     * @param $orderId
-     * @param callable $exceptionCallback
+     * @param mixed $orderId
+     * @param callable|null $exceptionCallback
      * @return array
      */
     public function requestApi(
         $initiatorName,
         string $path,
         array $data,
-        $orderId,
-        callable $exceptionCallback
+        $orderId = 'none',
+        callable $exceptionCallback = null
     ): array
     {
         $jsonContent = $this->json->serialize($data);
@@ -75,7 +77,9 @@ class Api extends \Magento\Framework\App\Helper\AbstractHelper
         } catch (ClientException|ServerException $exception) {
             $response = $exception->getResponse();
 
-            $exceptionCallback($exception);
+            if ($exceptionCallback) {
+                $exceptionCallback($exception);
+            }
 
             $errorData = $this->errorResolver->formatErrorData($exception);
             $this->logger->debugApiAction($initiatorName, $orderId, 'Got API response exception',
@@ -85,6 +89,8 @@ class Api extends \Magento\Framework\App\Helper\AbstractHelper
         } finally {
             $this->logger->debugApiAction($initiatorName, $orderId, 'Got API response status', [$response->getStatusCode()]);
         }
+
+        $this->lastStatusCode = $response->getStatusCode();
 
         $data = [];
         if ($response->getStatusCode() === 200) {
@@ -97,5 +103,13 @@ class Api extends \Magento\Framework\App\Helper\AbstractHelper
             $this->logger->debugApiAction($initiatorName, $orderId, 'Got API response', $data);
         }
         return $data;
+    }
+
+    /**
+     * @return int
+     */
+    public function getLastStatusCode()
+    {
+        return (int)$this->lastStatusCode;
     }
 }
