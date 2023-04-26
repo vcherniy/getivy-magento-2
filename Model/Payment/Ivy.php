@@ -15,8 +15,8 @@ class Ivy extends \Magento\Payment\Model\Method\AbstractMethod
     protected $_code = "ivy";
     protected $_isGateway = true;
     protected $_canCapture = true;
-    protected $_canUseInternal   = false;
-    protected $_canRefund   = true;
+    protected $_canUseInternal = false;
+    protected $_canRefund = true;
     protected $_canRefundInvoicePartial = true;
 
     protected $config;
@@ -60,16 +60,13 @@ class Ivy extends \Magento\Payment\Model\Method\AbstractMethod
 
     public function refund(\Magento\Payment\Model\InfoInterface $payment, $amount)
     {
-        $writer = new \Zend_Log_Writer_Stream(BP . '/var/log/testlog.log');
-$logger = new \Zend_Log();
-$logger->addWriter($writer);
-$logger->info('testt');
+
         if (!$this->canRefund()) {
             throw new \Magento\Framework\Exception\LocalizedException(__('The refund action is not available.'));
         }
-        $logger->info($payment->getCreditmemo()->getInvoice()->getTransactionId());
+
         $data = [
-            'orderId' => $payment->getCreditmemo()->getInvoice()->getTransactionId(),
+            'referenceId' => $payment->getCreditmemo()->getOrder()->getId(),
             'amount' => $amount,
         ];
 
@@ -89,14 +86,7 @@ $logger->info('testt');
 
         $response = $client->post('merchant/payment/refund', $options);
 
-        if ($response->getStatusCode() === 200) {
-            $arrData = $this->json->unserialize((string)$response->getBody());
-            if($arrData['refundStatus'] == 'succeeded')
-            {
-                
-            }
-        }
-        else{
+        if ($response->getStatusCode() !== 200) {
             throw new \Magento\Framework\Exception\LocalizedException(__('Something went wrong'));
         }
         return $this;
@@ -104,9 +94,8 @@ $logger->info('testt');
 
     public function canUseForCurrency($currencyCode)
     {
-        $currencies = ['EUR','BGN','HRK','CZK','DKK','GIP','HUF','ISK','CHF','NOK','PLN','RON','SEK','GBP'];
-        if(in_array($currencyCode,$currencies))
-        {
+        $currencies = ['EUR'];
+        if (in_array($currencyCode, $currencies)) {
             return true;
         }
         return false;
@@ -117,4 +106,3 @@ $logger->info('testt');
         return $this->_canRefundInvoicePartial;
     }
 }
-
