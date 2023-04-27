@@ -95,41 +95,27 @@ class Success extends Action
         $ivyModel->setIvyOrderId($ivyOrderId);
         $ivyModel->save();
 
-        // $this->onePage->saveOrder();
         $orderdetails = $this->order->create()->loadByIncrementId($magentoOrderId);
-        // if ($orderdetails->canInvoice()) {
-        //     $invoice = $this->invoiceService->prepareInvoice($orderdetails);
-        //     $invoice->setRequestedCaptureCase(\Magento\Sales\Model\Order\Invoice::CAPTURE_ONLINE);
-        //     $invoice->register();
-        //     $invoice->getOrder()->setIsInProcess(true);
-        //     $invoice->save();
-        //     $transactionSave = $this->transaction->addObject(
-        //         $invoice
-        //     )->addObject(
-        //         $invoice->getOrder()
-        //     );
-        //     $transactionSave->save();
-        //     $this->invoiceSender->send($invoice);
+        // it could be that the order has been created already. If it does not exist, we should wait and poll for it until it exists.
+        $counter = 0;
+        while (!$orderdetails->getId()) {
+            if ($counter > 20) {
+                $this->logger->debug('Order not found, giving up');
+                return false;
+            }
+            $counter++;
+            // wait 200 milliseconds
+            usleep(200*1000);
 
-        //     $orderdetails->save();
-        // }
-
-        // foreach ($orderdetails->getInvoiceCollection() as $invoice)
-        // {
-        //     $invoice->setTransactionId($ivyOrderId);
-        //     $invoice->save();
-        // }
-
-        // if($orderdetails->getState() === 'processing')
-        // {
-        //     $orderdetails->setStatus('payment_authorised');
-        //     $orderdetails->save();
-        // }
+            $this->logger->debug('Order not found, waiting for it to be created');
+            $orderdetails = $this->order->create()->loadByIncrementId($magentoOrderId);
+        }
 
         $quote = $this->checkoutSession->getQuote();
 
         $this->quoteRepository->delete($quote);
         $this->checkoutSession->clearQuote();
+
         // TODO : this doesn't seem to work (especially for the minicart)
         // could be because we're ending up in a redirect
         // to be re-evaluated when we open up the configurable thank you page task.
