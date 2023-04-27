@@ -8,6 +8,7 @@ declare(strict_types=1);
 namespace Esparksinc\IvyPayment\Controller\Quote;
 
 use Esparksinc\IvyPayment\Helper\Discount as DiscountHelper;
+use Esparksinc\IvyPayment\Helper\Quote as QuoteHelper;
 use Esparksinc\IvyPayment\Model\Config;
 use Esparksinc\IvyPayment\Model\Logger;
 use Magento\Directory\Model\RegionFactory;
@@ -19,11 +20,9 @@ use Magento\Framework\App\RequestInterface;
 use Magento\Framework\App\Request\InvalidRequestException;
 use Magento\Framework\Controller\Result\JsonFactory;
 use Magento\Framework\Serialize\Serializer\Json;
-use Magento\Quote\Model\QuoteFactory;
 use Magento\Quote\Model\Cart\CartTotalRepository;
 use Magento\Quote\Model\QuoteRepository;
 use Magento\Quote\Model\ShippingMethodManagement;
-use Magento\Framework\Api\SearchCriteriaBuilder;
 
 class Index extends Action implements CsrfAwareActionInterface
 {
@@ -31,14 +30,13 @@ class Index extends Action implements CsrfAwareActionInterface
     protected $json;
     protected $jsonFactory;
     protected $scopeConfig;
-    protected $quoteFactory;
     protected $quoteRepository;
     protected $regionFactory;
     protected $cartTotalRepository;
-    protected $searchCriteriaBuilder;
     protected $logger;
     protected $shippingMethodManagement;
     protected $discountHelper;
+    protected $quoteHelper;
 
 
     /**
@@ -47,11 +45,9 @@ class Index extends Action implements CsrfAwareActionInterface
      * @param Json $json
      * @param JsonFactory $jsonFactory
      * @param ScopeConfigInterface $scopeConfig
-     * @param QuoteFactory $quoteFactory
      * @param QuoteRepository $quoteRepository
      * @param RegionFactory $regionFactory
      * @param CartTotalRepository $cartTotalRepository
-     * @param SearchCriteriaBuilder $searchCriteriaBuilder
      * @param Logger $logger
      * @param ShippingMethodManagement $shippingMethodManagement
      * @param DiscountHelper $discountHelper
@@ -62,28 +58,25 @@ class Index extends Action implements CsrfAwareActionInterface
         Json                     $json,
         JsonFactory              $jsonFactory,
         ScopeConfigInterface     $scopeConfig,
-        QuoteFactory             $quoteFactory,
         QuoteRepository          $quoteRepository,
         RegionFactory            $regionFactory,
         CartTotalRepository      $cartTotalRepository,
-        SearchCriteriaBuilder $searchCriteriaBuilder,
         Logger                   $logger,
         ShippingMethodManagement $shippingMethodManagement,
-        DiscountHelper           $discountHelper
-
+        DiscountHelper           $discountHelper,
+        QuoteHelper              $quoteHelper
     ) {
         $this->config = $config;
         $this->json = $json;
         $this->jsonFactory = $jsonFactory;
         $this->scopeConfig = $scopeConfig;
-        $this->quoteFactory = $quoteFactory;
         $this->quoteRepository = $quoteRepository;
         $this->regionFactory = $regionFactory;
         $this->cartTotalRepository = $cartTotalRepository;
-        $this->searchCriteriaBuilder = $searchCriteriaBuilder;
         $this->logger = $logger;
         $this->shippingMethodManagement = $shippingMethodManagement;
         $this->discountHelper = $discountHelper;
+        $this->quoteHelper = $quoteHelper;
 
         parent::__construct($context);
     }
@@ -97,10 +90,7 @@ class Index extends Action implements CsrfAwareActionInterface
         $this->logger->debugRequest($this, $magentoOrderId);
 
         $quoteId = $customerData['metadata']['quote_id'] ?? null;
-        if (!$quoteId) {
-            $quoteId = $this->getQuoteId($magentoOrderId);
-        }
-        $quote = $this->quoteRepository->get($quoteId);
+        $quote = $this->quoteHelper->getQuote($magentoOrderId, $quoteId);
 
         if (!$quote->getCustomerId()) {
             $quote->setCustomerEmail($customerData['shopperEmail']);
@@ -243,19 +233,5 @@ class Index extends Action implements CsrfAwareActionInterface
             return $name;
         }
         return $carrierCode;
-    }
-
-    private function getQuoteId(string $reservedOrderId): int
-    {
-        $searchCriteria = $this->searchCriteriaBuilder->addFilter('reserved_order_id', $reservedOrderId)->create();
-        $quotes = $this->quoteRepository->getList($searchCriteria)->getItems();
-
-        if (count($quotes) === 1) {
-            $quote = array_values($quotes)[0];
-        } else {
-            $quote = $this->quoteFactory->create()->load($reservedOrderId, 'reserved_order_id');
-        }
-
-        return $quote->getId();
     }
 }
