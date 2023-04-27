@@ -57,13 +57,9 @@ class Invoice extends \Magento\Framework\App\Helper\AbstractHelper
             );
             $transactionSave->save();
             $this->invoiceSender->send($invoice);
-
-            $order->save();
-        }
-
-        foreach ($order->getInvoiceCollection() as $invoice) {
             $invoice->setTransactionId($transactionId);
             $invoice->save();
+            $order->save();
         }
 
         if ($order->getState() === 'processing') {

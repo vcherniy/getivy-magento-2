@@ -10,14 +10,19 @@ namespace Esparksinc\IvyPayment\Controller\Webhook;
 use Esparksinc\IvyPayment\Helper\Invoice as InvoiceHelper;
 use Esparksinc\IvyPayment\Model\Config;
 use Esparksinc\IvyPayment\Model\Logger;
+use Magento\Framework\Api\SearchCriteriaBuilder;
 use Magento\Framework\App\Action\Action;
 use Magento\Framework\App\Action\Context;
 use Magento\Framework\App\CsrfAwareActionInterface;
 use Magento\Framework\App\RequestInterface;
 use Magento\Framework\App\Request\InvalidRequestException;
+use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Serialize\Serializer\Json;
 use Magento\Sales\Api\OrderManagementInterface;
+use Magento\Sales\Api\OrderRepositoryInterface;
 use Magento\Sales\Api\RefundInvoiceInterface;
+use Magento\Sales\Model\Order;
+use Magento\Sales\Model\Order\Payment;
 use Magento\Sales\Model\OrderFactory;
 
 class Index extends Action implements CsrfAwareActionInterface
@@ -29,6 +34,8 @@ class Index extends Action implements CsrfAwareActionInterface
     protected $orderManagement;
     protected $logger;
     protected $invoiceHelper;
+    protected $searchCriteriaBuilder;
+    protected $orderRepository;
 
     /**
      * @param Context $context
@@ -39,6 +46,8 @@ class Index extends Action implements CsrfAwareActionInterface
      * @param OrderManagementInterface $orderManagement
      * @param Logger $logger
      * @param InvoiceHelper $invoiceHelper
+     * @param SearchCriteriaBuilder $searchCriteriaBuilder
+     * @param OrderRepositoryInterface $orderRepository
      */
     public function __construct(
         Context                  $context,
@@ -48,7 +57,9 @@ class Index extends Action implements CsrfAwareActionInterface
         RefundInvoiceInterface   $refund,
         OrderManagementInterface $orderManagement,
         Logger                   $logger,
-        InvoiceHelper            $invoiceHelper
+        InvoiceHelper            $invoiceHelper,
+        SearchCriteriaBuilder    $searchCriteriaBuilder,
+        OrderRepositoryInterface $orderRepository
     ) {
         $this->config = $config;
         $this->order = $order;
@@ -57,6 +68,8 @@ class Index extends Action implements CsrfAwareActionInterface
         $this->orderManagement = $orderManagement;
         $this->logger = $logger;
         $this->invoiceHelper = $invoiceHelper;
+        $this->searchCriteriaBuilder = $searchCriteriaBuilder;
+        $this->orderRepository = $orderRepository;
         parent::__construct($context);
     }
     public function execute()
@@ -75,31 +88,45 @@ class Index extends Action implements CsrfAwareActionInterface
         $orderId = $orderdetails->getId();
 
         $this->logger->debugRequest($this, $magentoOrderId);
-        $this->logger->debugApiAction($this, $magentoOrderId, 'Order', $orderdetails->getData());
+        $quoteId = $arrData['payload']['metadata']['quote_id'] ?? null;
+        if ($quoteId && (int)$quoteId !== (int)$orderdetails->getQuoteId()) {
+            $this->logger->debugApiAction($this, $magentoOrderId, 'Incorrect quote id',
+                ['magento' => $orderdetails->getQuoteId(), 'ivy' => $quoteId]
+            );
+            $orderdetails = $this->loadOrderByQuoteId($quoteId);
+            if (!$orderdetails) {
+                return false;
+            }
+        }
 
-        if($arrData['type'] === 'order_updated' || $arrData['type'] === 'order_created')
+        // the webhook should not process the order if it made not via ivy
+        $isIvy = $this->isIvyPayment($orderdetails->getPayment());
+        if ($isIvy) {
+            $this->logger->debugApiAction($this, $magentoOrderId, 'Order', $orderdetails->getData());
+        } else {
+            $this->logger->debugApiAction($this, $magentoOrderId, 'Incorrect order', $orderdetails->getData());
+            return false;
+        }
+
+        if ($arrData['type'] === 'order_updated' || $arrData['type'] === 'order_created')
         {
             switch ($arrData['payload']['status']) {
-                case 'failed':
                 case 'canceled':
                     if ($orderdetails->canInvoice()) {
                         $this->orderManagement->cancel($orderId);
-                    } else{
-                        $this->orderRefund($arrData);
                     }
                     break;
                 case 'waiting_for_payment':
                 case 'paid':
                     if ($orderdetails->canInvoice()) {
-                        $this->createInvoice($arrData);
+                        $this->createInvoice($orderdetails, $arrData);
                     } else{
-                        $this->setOrderStatus($arrData,'processing');
+                        $this->setOrderStatus($orderdetails,'processing');
                     }
                     break;
                 case 'refunded':
-                case 'in_refund':
-                    $this->orderRefund($arrData);
-                    break;
+                    $this->orderRefund($orderdetails);
+                break;
             }
         }
     }
@@ -132,11 +159,8 @@ class Index extends Action implements CsrfAwareActionInterface
         return false;
     }
 
-    private function orderRefund($arrData)
+    private function orderRefund(Order $orderdetails)
     {
-        $magentoOrderId = $arrData['payload']['referenceId'];
-        $orderdetails = $this->order->create()->loadByIncrementId($magentoOrderId);
-
         /*
          * If the order/complete callback was unsuccessful then the order with the reserved id may not have been created.
          * Ivy sends request to refund the order in this case. So we should check if we have anything to refund.
@@ -145,18 +169,26 @@ class Index extends Action implements CsrfAwareActionInterface
             return;
         }
 
-        $invoice = $orderdetails->getInvoiceCollection()->getFirstItem();
-        $invoiceId = $invoice->getId();
-        if ($invoiceId) {
-            $this->refund->execute($invoiceId,[],true);
+        // STATUS_REFUNDED = 8
+        if ($orderdetails->getStatusId() === 8) {
+            return;
+        }
+
+        if (!$this->isIvyPayment($orderdetails->getPayment())) {
+            return;
+        }
+
+        $invoices = $orderdetails->getInvoiceCollection();
+        foreach ($invoices as $invoice) {
+            $invoiceId = $invoice->getId();
+            if ($invoiceId) {
+                $this->refund->execute($invoiceId,[],true);
+            }
         }
     }
 
-    private function setOrderStatus($arrData,$status)
+    private function setOrderStatus(Order $orderdetails, $status)
     {
-        $magentoOrderId = $arrData['payload']['referenceId'];
-        $orderdetails = $this->order->create()->loadByIncrementId($magentoOrderId);
-
         if($orderdetails->getState() === 'processing')
         {
             $orderdetails->setStatus($status);
@@ -164,12 +196,34 @@ class Index extends Action implements CsrfAwareActionInterface
         }
     }
 
-    private function createInvoice($arrData)
-    {
-        $magentoOrderId = $arrData['payload']['referenceId'];
+    private function createInvoice(Order $orderdetails, $arrData)
+    {;
         $ivyOrderId = $arrData['payload']['id'];
-        $orderdetails = $this->order->create()->loadByIncrementId($magentoOrderId);
-
         $this->invoiceHelper->createInvoice($orderdetails, $ivyOrderId);
+    }
+
+    /**
+     * @param Payment $payment
+     * @return bool
+     * @throws LocalizedException
+     */
+    private function isIvyPayment($payment)
+    {
+        $code = $payment->getMethodInstance()->getCode();
+        return $code === 'ivy';
+    }
+
+    private function loadOrderByQuoteId($quoteId)
+    {
+        $searchCriteria = $this->searchCriteriaBuilder
+            ->addFilter('quote_id', $quoteId)
+            ->create();
+
+        $orders = $this->orderRepository->getList($searchCriteria);
+        if ($orders->getTotalCount() > 0) {
+            return array_values($orders->getItems())[0];
+        } else {
+            return false;
+        }
     }
 }

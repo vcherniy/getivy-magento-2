@@ -2,6 +2,7 @@
 
 namespace Esparksinc\IvyPayment\Observer;
 
+use Esparksinc\IvyPayment\Helper\Api as ApiHelper;
 use Magento\Framework\Event\ObserverInterface;
 use Magento\Framework\Event\Observer as EventObserver;
 use Magento\Framework\App\RequestInterface;
@@ -21,17 +22,19 @@ class UpdateMerchant implements ObserverInterface
     protected $emulation;
     protected $scopeConfig;
     protected $urlBuilder;
+    protected $apiHelper;
 
     public function __construct(
-        RequestInterface $request, 
-        WriterInterface $configWriter, 
+        RequestInterface $request,
+        WriterInterface $configWriter,
         \Esparksinc\IvyPayment\Model\Config $config,
         \Magento\Framework\Serialize\Serializer\Json $json,
         \Magento\Store\Model\StoreManagerInterface $storeManager,
         \Magento\Theme\Block\Html\Header\Logo $logo,
         \Magento\Store\Model\App\Emulation $emulation,
         ScopeConfigInterface $scopeConfig,
-        UrlInterface $urlBuilder
+        UrlInterface $urlBuilder,
+        ApiHelper $apiHelper
     )
     {
         $this->request = $request;
@@ -43,59 +46,44 @@ class UpdateMerchant implements ObserverInterface
         $this->emulation = $emulation;
         $this->scopeConfig = $scopeConfig;
         $this->urlBuilder = $urlBuilder;
+        $this->apiHelper = $apiHelper;
     }
     public function execute(EventObserver $observer)
     {
+        // Create data to set in api
         $frontendUrl = $this->storeManager->getStore()->getBaseUrl();
-        $successCallbackUrl = $frontendUrl.'ivypayment/success';
-        $errorCallbackUrl = $frontendUrl.'ivypayment/fail';
-        $quoteCallbackUrl = $frontendUrl.'ivypayment/quote';
-        $webhookUrl = $frontendUrl.'ivypayment/webhook';
-        $completeCallbackUrl = $frontendUrl.'ivypayment/order/complete';
+        $data = [
+            'successCallbackUrl'    => $frontendUrl.'ivypayment/success',
+            'errorCallbackUrl'      => $frontendUrl.'ivypayment/fail',
+            'quoteCallbackUrl'      => $frontendUrl.'ivypayment/quote',
+            'webhookUrl'            => $frontendUrl.'ivypayment/webhook',
+            'completeCallbackUrl'   => $frontendUrl.'ivypayment/order/complete',
+            'shopLogo'              => $this->getShopLogo()
+        ];
+        $this->apiHelper->requestApi('updateMerchant', 'merchant/update', $data);
+
+        $appId = explode('.', $this->config->getApiKey());
+        $this->configWriter->save('payment/ivy/app_id', $appId[0]);
+        return $this;
+    }
+
+    /**
+     * @return string
+     */
+    private function getShopLogo()
+    {
         $this->emulation->startEnvironmentEmulation(null, \Magento\Framework\App\Area::AREA_FRONTEND, true);
         $path = $this->scopeConfig->getValue(
             'design/header/logo_src',
             \Magento\Store\Model\ScopeInterface::SCOPE_STORE
         );
-        if($path)
-        {
+        if ($path) {
             $shopLogo = $this->urlBuilder
-                ->getBaseUrl(['_type' => \Magento\Framework\UrlInterface::URL_TYPE_MEDIA]) .'logo/'. $path;
-        }
-        else{
+                    ->getBaseUrl(['_type' => \Magento\Framework\UrlInterface::URL_TYPE_MEDIA]) .'logo/'. $path;
+        } else {
             $shopLogo = $this->logo->getLogoSrc();
         }
         $this->emulation->stopEnvironmentEmulation();
-
-        // Create data to set in api
-        $data = [
-            'successCallbackUrl' => $successCallbackUrl,
-            'errorCallbackUrl' =>  $errorCallbackUrl,
-            'quoteCallbackUrl' => $quoteCallbackUrl,
-            'webhookUrl' => $webhookUrl,
-            'completeCallbackUrl' => $completeCallbackUrl,
-            'shopLogo' => $shopLogo
-        ];
-
-        $jsonContent = $this->json->serialize($data);
-
-        //Authenticate API key
-        $client = new Client([
-            'base_uri' => $this->config->getApiUrl(),
-            'headers' => [
-                'X-Ivy-Api-Key' => $this->config->getApiKey(),
-            ],
-        ]);
-
-        $headers['content-type'] = 'application/json';
-        $options = [
-            'headers' => $headers,
-            'body' => $jsonContent,
-        ];
-
-        $response = $client->post('merchant/update', $options);
-        $appId = explode('.', $this->config->getApiKey());
-        $this->configWriter->save('payment/ivy/app_id', $appId[0]);
-        return $this;
+        return $shopLogo;
     }
 }
