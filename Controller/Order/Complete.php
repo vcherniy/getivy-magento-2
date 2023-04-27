@@ -170,7 +170,7 @@ class Complete extends Action implements CsrfAwareActionInterface
             return $this->jsonFactory->create()->setHttpResponseCode(400)->setData([]);
         }
 
-        $quote->save();
+        $this->quoteRepository->save($quote);
 
         $frontendUrl = $this->storeManager->getStore()->getBaseUrl();
         $redirectUrl = $frontendUrl.'ivypayment/complete/success';
