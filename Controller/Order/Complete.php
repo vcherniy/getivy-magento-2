@@ -170,17 +170,7 @@ class Complete extends Action implements CsrfAwareActionInterface
             return $this->jsonFactory->create()->setHttpResponseCode(400)->setData([]);
         }
 
-        try {
-            $this->quoteManagement->submit($quote);
-        } catch (\Exception $exception) {
-            $this->logger->debugApiAction($this, $magentoOrderId, 'Quote submit error',
-                [$exception->getMessage()]
-            );
-
-            // return 400 status in this callback will cancel order id on the Ivy Payment Processor side
-            $this->errorResolver->forceReserveOrderId($quote);
-            return $this->jsonFactory->create()->setHttpResponseCode(400)->setData([]);
-        }
+        $quote->save();
 
         $frontendUrl = $this->storeManager->getStore()->getBaseUrl();
         $redirectUrl = $frontendUrl.'ivypayment/complete/success';
