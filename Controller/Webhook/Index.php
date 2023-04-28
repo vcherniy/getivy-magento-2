@@ -105,7 +105,7 @@ class Index extends Action implements CsrfAwareActionInterface
         {
             switch ($arrData['payload']['status']) {
                 case 'canceled':
-                    $quote->cancel();
+                    // do nothing.
                     break;
                 case 'waiting_for_payment':
                 case 'paid':
@@ -120,10 +120,6 @@ class Index extends Action implements CsrfAwareActionInterface
                     if ($newOrder instanceof \Magento\Framework\Controller\ResultInterface) {
                         return $newOrder;
                     }
-
-                    $this->logger->debugApiAction($this, $quote->getId(), 'Can invoice',
-                        ['flag' => $newOrder->canInvoice()? 'yes': 'no']
-                    );
 
                     // order created
                     if ($newOrder->canInvoice()) {
@@ -246,9 +242,6 @@ class Index extends Action implements CsrfAwareActionInterface
     {
         // check if order already exists for this quote
         if ($this->loadOrderByQuoteId($quote->getId())) {
-            $this->logger->debugApiAction($this, $quote->getId(), 'Order with quote exists',
-                ['quote_id' => $quote->getId()]
-            );
             return false;
         }
 
