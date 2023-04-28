@@ -7,93 +7,72 @@ declare(strict_types=1);
 
 namespace Esparksinc\IvyPayment\Controller\Order;
 
+use Esparksinc\IvyPayment\Helper\Quote as QuoteHelper;
 use Esparksinc\IvyPayment\Model\Config;
 use Esparksinc\IvyPayment\Model\ErrorResolver;
 use Esparksinc\IvyPayment\Model\Logger;
-use Magento\Directory\Model\RegionFactory;
 use Magento\Framework\App\Action\Action;
 use Magento\Framework\App\Action\Context;
-use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\App\CsrfAwareActionInterface;
 use Magento\Framework\App\RequestInterface;
 use Magento\Framework\App\Request\InvalidRequestException;
 use Magento\Framework\Controller\Result\JsonFactory;
 use Magento\Framework\Serialize\Serializer\Json;
-use Magento\Quote\Api\CartManagementInterface;
 use Magento\Quote\Model\Cart\CartTotalRepository;
 use Magento\Quote\Model\Quote\TotalsCollector;
-use Magento\Quote\Model\QuoteFactory;
 use Magento\Quote\Model\QuoteRepository;
 use Magento\Store\Model\StoreManagerInterface;
-use Magento\Framework\Api\SearchCriteriaBuilder;
 
 class Complete extends Action implements CsrfAwareActionInterface
 {
     protected $config;
     protected $json;
     protected $jsonFactory;
-    protected $scopeConfig;
-    protected $quoteFactory;
     protected $quoteRepository;
-    protected $regionFactory;
     protected $cartTotalRepository;
-    protected $quoteManagement;
     protected $storeManager;
     protected $searchCriteriaBuilder;
     protected $logger;
     protected $errorResolver;
     protected $totalsCollector;
-
+    protected $quoteHelper;
 
     /**
      * @param Context $context
      * @param Config $config
      * @param Json $json
      * @param JsonFactory $jsonFactory
-     * @param ScopeConfigInterface $scopeConfig
-     * @param QuoteFactory $quoteFactory
      * @param QuoteRepository $quoteRepository
-     * @param RegionFactory $regionFactory
      * @param CartTotalRepository $cartTotalRepository
-     * @param CartManagementInterface $quoteManagement
      * @param StoreManagerInterface $storeManager
-     * @param SearchCriteriaBuilder $searchCriteriaBuilder
      * @param Logger $logger
      * @param ErrorResolver $errorResolver
      * @param TotalsCollector $totalsCollector
+     * @param QuoteHelper $quoteHelper
      */
     public function __construct(
         Context                 $context,
         Config                  $config,
         Json                    $json,
         JsonFactory             $jsonFactory,
-        ScopeConfigInterface    $scopeConfig,
-        QuoteFactory            $quoteFactory,
         QuoteRepository         $quoteRepository,
-        RegionFactory           $regionFactory,
         CartTotalRepository     $cartTotalRepository,
-        CartManagementInterface $quoteManagement,
         StoreManagerInterface   $storeManager,
-        SearchCriteriaBuilder   $searchCriteriaBuilder,
         Logger                  $logger,
         ErrorResolver           $errorResolver,
-        TotalsCollector         $totalsCollector
-
+        TotalsCollector         $totalsCollector,
+        QuoteHelper             $quoteHelper
     ) {
         $this->config = $config;
-        $this->searchCriteriaBuilder = $searchCriteriaBuilder;
         $this->json = $json;
         $this->jsonFactory = $jsonFactory;
-        $this->scopeConfig = $scopeConfig;
-        $this->quoteFactory = $quoteFactory;
         $this->quoteRepository = $quoteRepository;
-        $this->regionFactory = $regionFactory;
         $this->cartTotalRepository = $cartTotalRepository;
-        $this->quoteManagement = $quoteManagement;
         $this->storeManager = $storeManager;
         $this->logger = $logger;
         $this->errorResolver = $errorResolver;
         $this->totalsCollector = $totalsCollector;
+        $this->quoteHelper = $quoteHelper;
         parent::__construct($context);
     }
     public function execute()
@@ -105,10 +84,7 @@ class Complete extends Action implements CsrfAwareActionInterface
         $this->logger->debugRequest($this, $magentoOrderId);
 
         $quoteId = $customerData['metadata']['quote_id'] ?? null;
-        if (!$quoteId) {
-            $quoteId = $this->getQuoteId($magentoOrderId);
-        }
-        $quote = $this->quoteRepository->get($quoteId);
+        $quote = $this->quoteHelper->getQuote($magentoOrderId, $quoteId);
 
         if (!$quote->getCustomerId()) {
             $quote->setCustomerEmail($customerData['shopperEmail']);
@@ -216,19 +192,5 @@ class Complete extends Action implements CsrfAwareActionInterface
         }
 
         return false;
-    }
-
-    private function getQuoteId(string $reservedOrderId): int
-    {
-        $searchCriteria = $this->searchCriteriaBuilder->addFilter('reserved_order_id', $reservedOrderId)->create();
-        $quotes = $this->quoteRepository->getList($searchCriteria)->getItems();
-
-        if (count($quotes) === 1) {
-            $quote = array_values($quotes)[0];
-        } else {
-            $quote = $this->quoteFactory->create()->load($reservedOrderId, 'reserved_order_id');
-        }
-
-        return $quote->getId();
     }
 }

@@ -8,7 +8,9 @@ declare(strict_types=1);
 namespace Esparksinc\IvyPayment\Controller\Webhook;
 
 use Esparksinc\IvyPayment\Helper\Invoice as InvoiceHelper;
+use Esparksinc\IvyPayment\Helper\Quote as QuoteHelper;
 use Esparksinc\IvyPayment\Model\Config;
+use Esparksinc\IvyPayment\Model\ErrorResolver;
 use Esparksinc\IvyPayment\Model\Logger;
 use Magento\Framework\Api\SearchCriteriaBuilder;
 use Magento\Framework\App\Action\Action;
@@ -16,21 +18,20 @@ use Magento\Framework\App\Action\Context;
 use Magento\Framework\App\CsrfAwareActionInterface;
 use Magento\Framework\App\RequestInterface;
 use Magento\Framework\App\Request\InvalidRequestException;
+use Magento\Framework\Controller\Result\JsonFactory;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Serialize\Serializer\Json;
-use Magento\Sales\Api\OrderManagementInterface;
 use Magento\Sales\Api\OrderRepositoryInterface;
 use Magento\Sales\Api\RefundInvoiceInterface;
 use Magento\Sales\Model\Order;
 use Magento\Sales\Model\Order\Payment;
-use Magento\Sales\Model\OrderFactory;
 use Magento\Quote\Api\CartManagementInterface;
 
 class Index extends Action implements CsrfAwareActionInterface
 {
     protected $config;
-    protected $order;
     protected $json;
+    protected $jsonFactory;
     protected $refund;
     protected $orderManagement;
     protected $logger;
@@ -38,45 +39,51 @@ class Index extends Action implements CsrfAwareActionInterface
     protected $searchCriteriaBuilder;
     protected $orderRepository;
     protected $quoteManagement;
+    protected $errorResolver;
+    protected $quoteHelper;
+
     /**
      * @param Context $context
-     * @param OrderFactory $order
      * @param Config $config
      * @param Json $json
+     * @param JsonFactory $jsonFactory
      * @param RefundInvoiceInterface $refund
-     * @param OrderManagementInterface $orderManagement
      * @param Logger $logger
      * @param InvoiceHelper $invoiceHelper
      * @param SearchCriteriaBuilder $searchCriteriaBuilder
      * @param OrderRepositoryInterface $orderRepository
      * @param CartManagementInterface $quoteManagement
-     * @param 
+     * @param ErrorResolver $errorResolver
+     * @param QuoteHelper $quoteHelper
      */
     public function __construct(
         Context                  $context,
-        OrderFactory             $order,
         Config                   $config,
         Json                     $json,
+        JsonFactory              $jsonFactory,
         RefundInvoiceInterface   $refund,
-        OrderManagementInterface $orderManagement,
         Logger                   $logger,
         InvoiceHelper            $invoiceHelper,
         SearchCriteriaBuilder    $searchCriteriaBuilder,
         OrderRepositoryInterface $orderRepository,
-        CartManagementInterface  $quoteManagement
+        CartManagementInterface  $quoteManagement,
+        ErrorResolver            $errorResolver,
+        QuoteHelper              $quoteHelper
     ) {
         $this->config = $config;
-        $this->order = $order;
         $this->json = $json;
+        $this->jsonFactory = $jsonFactory;
         $this->refund = $refund;
-        $this->orderManagement = $orderManagement;
         $this->logger = $logger;
         $this->invoiceHelper = $invoiceHelper;
         $this->searchCriteriaBuilder = $searchCriteriaBuilder;
         $this->orderRepository = $orderRepository;
         $this->quoteManagement = $quoteManagement;
+        $this->errorResolver = $errorResolver;
+        $this->quoteHelper = $quoteHelper;
         parent::__construct($context);
     }
+
     public function execute()
     {
         $request = $this->getRequest();
@@ -92,25 +99,24 @@ class Index extends Action implements CsrfAwareActionInterface
         $this->logger->debugRequest($this, $magentoOrderId);
 
         $quoteId = $arrData['payload']['metadata']['quote_id'] ?? null;
-        if (!$quoteId) {
-            $quoteId = $this->getQuoteId($magentoOrderId);
-        }
-        $quote = $this->quoteRepository->get($quoteId);
+        $quote = $this->quoteHelper->getQuote($magentoOrderId, $quoteId);
 
         if ($arrData['type'] === 'order_updated' || $arrData['type'] === 'order_created')
         {
             switch ($arrData['payload']['status']) {
                 case 'canceled':
-                    $quote->cancel();
+                    // do nothing.
                     break;
                 case 'waiting_for_payment':
                 case 'paid':
-                    if (!$quoteId) {
-                        $quoteId = $this->getQuoteId($magentoOrderId);
-                    }
-                    $quote = $this->quoteRepository->get($quoteId);
                     $newOrder = $this->createOrder($quote);
 
+                    // some problem happened
+                    if (!$newOrder) {
+                        return $this->jsonFactory->create()->setHttpResponseCode(400)->setData([]);
+                    }
+
+                    // order created
                     if ($newOrder->canInvoice()) {
                         $this->createInvoice($newOrder, $arrData);
                     } else{
@@ -119,6 +125,8 @@ class Index extends Action implements CsrfAwareActionInterface
                     break;
             }
         }
+
+        return $this->jsonFactory->create()->setHttpResponseCode(200)->setData([]);
     }
 
     public function createCsrfValidationException(RequestInterface $request): ? InvalidRequestException
@@ -225,12 +233,16 @@ class Index extends Action implements CsrfAwareActionInterface
         }
     }
 
-    private function createOrder($quote) {
+    /**
+     * @param $quote
+     * @return false|\Magento\Sales\Api\Data\OrderInterface|null
+     */
+    private function createOrder($quote)
+    {
         // check if order already exists for this quote
-        $searchCriteria = $this->searchCriteriaBuilder->addFilter('quote_id', $quote->getId())->create();
-        $orders = $this->orderRepository->getList($searchCriteria)->getItems();
-        if (count($orders) > 0) {
-            return true;
+        $order = $this->loadOrderByQuoteId($quote->getId());
+        if ($order && $order->getId()) {
+            return $order;
         }
 
         try {
@@ -240,23 +252,9 @@ class Index extends Action implements CsrfAwareActionInterface
                 [$exception->getMessage()]
             );
 
-            // return 400 status in this response will trigger a the webhook to be sent again
+            // return 400 status in this response will trigger the webhook to be sent again
             $this->errorResolver->forceReserveOrderId($quote);
-            return $this->jsonFactory->create()->setHttpResponseCode(400)->setData([]);
+            return false;
         }
-    }
-
-    private function getQuoteId(string $reservedOrderId): int
-    {
-        $searchCriteria = $this->searchCriteriaBuilder->addFilter('reserved_order_id', $reservedOrderId)->create();
-        $quotes = $this->quoteRepository->getList($searchCriteria)->getItems();
-
-        if (count($quotes) === 1) {
-            $quote = array_values($quotes)[0];
-        } else {
-            $quote = $this->quoteFactory->create()->load($reservedOrderId, 'reserved_order_id');
-        }
-
-        return $quote->getId();
     }
 }
