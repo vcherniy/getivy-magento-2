@@ -121,6 +121,10 @@ class Index extends Action implements CsrfAwareActionInterface
                         return $newOrder;
                     }
 
+                    $this->logger->debugApiAction($this, $quote->getId(), 'Can invoice',
+                        ['flag' => $newOrder->canInvoice()? 'yes': 'no']
+                    );
+
                     // order created
                     if ($newOrder->canInvoice()) {
                         $this->createInvoice($newOrder, $arrData);
@@ -242,6 +246,9 @@ class Index extends Action implements CsrfAwareActionInterface
     {
         // check if order already exists for this quote
         if ($this->loadOrderByQuoteId($quote->getId())) {
+            $this->logger->debugApiAction($this, $quote->getId(), 'Order with quote exists',
+                ['quote_id' => $quote->getId()]
+            );
             return false;
         }
 
