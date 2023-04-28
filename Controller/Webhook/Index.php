@@ -105,7 +105,7 @@ class Index extends Action implements CsrfAwareActionInterface
         {
             switch ($arrData['payload']['status']) {
                 case 'canceled':
-                    $quote->cancel();
+                    // do nothing.
                     break;
                 case 'waiting_for_payment':
                 case 'paid':
