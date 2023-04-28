@@ -111,14 +111,9 @@ class Index extends Action implements CsrfAwareActionInterface
                 case 'paid':
                     $newOrder = $this->createOrder($quote);
 
-                    // order not created because already exists
+                    // some problem happened
                     if (!$newOrder) {
-                        break;
-                    }
-
-                    // some problem happened and returned the controller result object
-                    if ($newOrder instanceof \Magento\Framework\Controller\ResultInterface) {
-                        return $newOrder;
+                        return $this->jsonFactory->create()->setHttpResponseCode(400)->setData([]);
                     }
 
                     // order created
@@ -238,11 +233,16 @@ class Index extends Action implements CsrfAwareActionInterface
         }
     }
 
+    /**
+     * @param $quote
+     * @return false|\Magento\Sales\Api\Data\OrderInterface|null
+     */
     private function createOrder($quote)
     {
         // check if order already exists for this quote
-        if ($this->loadOrderByQuoteId($quote->getId())) {
-            return false;
+        $order = $this->loadOrderByQuoteId($quote->getId());
+        if ($order && $order->getId()) {
+            return $order;
         }
 
         try {
@@ -254,7 +254,7 @@ class Index extends Action implements CsrfAwareActionInterface
 
             // return 400 status in this response will trigger the webhook to be sent again
             $this->errorResolver->forceReserveOrderId($quote);
-            return $this->jsonFactory->create()->setHttpResponseCode(400)->setData([]);
+            return false;
         }
     }
 }
