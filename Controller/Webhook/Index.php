@@ -8,7 +8,9 @@ declare(strict_types=1);
 namespace Esparksinc\IvyPayment\Controller\Webhook;
 
 use Esparksinc\IvyPayment\Helper\Invoice as InvoiceHelper;
+use Esparksinc\IvyPayment\Helper\Quote as QuoteHelper;
 use Esparksinc\IvyPayment\Model\Config;
+use Esparksinc\IvyPayment\Model\ErrorResolver;
 use Esparksinc\IvyPayment\Model\Logger;
 use Magento\Framework\Api\SearchCriteriaBuilder;
 use Magento\Framework\App\Action\Action;
@@ -16,62 +18,72 @@ use Magento\Framework\App\Action\Context;
 use Magento\Framework\App\CsrfAwareActionInterface;
 use Magento\Framework\App\RequestInterface;
 use Magento\Framework\App\Request\InvalidRequestException;
+use Magento\Framework\Controller\Result\JsonFactory;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Serialize\Serializer\Json;
-use Magento\Sales\Api\OrderManagementInterface;
 use Magento\Sales\Api\OrderRepositoryInterface;
 use Magento\Sales\Api\RefundInvoiceInterface;
 use Magento\Sales\Model\Order;
 use Magento\Sales\Model\Order\Payment;
-use Magento\Sales\Model\OrderFactory;
+use Magento\Quote\Api\CartManagementInterface;
 
 class Index extends Action implements CsrfAwareActionInterface
 {
     protected $config;
-    protected $order;
     protected $json;
+    protected $jsonFactory;
     protected $refund;
     protected $orderManagement;
     protected $logger;
     protected $invoiceHelper;
     protected $searchCriteriaBuilder;
     protected $orderRepository;
+    protected $quoteManagement;
+    protected $errorResolver;
+    protected $quoteHelper;
 
     /**
      * @param Context $context
-     * @param OrderFactory $order
      * @param Config $config
      * @param Json $json
+     * @param JsonFactory $jsonFactory
      * @param RefundInvoiceInterface $refund
-     * @param OrderManagementInterface $orderManagement
      * @param Logger $logger
      * @param InvoiceHelper $invoiceHelper
      * @param SearchCriteriaBuilder $searchCriteriaBuilder
      * @param OrderRepositoryInterface $orderRepository
+     * @param CartManagementInterface $quoteManagement
+     * @param ErrorResolver $errorResolver
+     * @param QuoteHelper $quoteHelper
      */
     public function __construct(
         Context                  $context,
-        OrderFactory             $order,
         Config                   $config,
         Json                     $json,
+        JsonFactory              $jsonFactory,
         RefundInvoiceInterface   $refund,
-        OrderManagementInterface $orderManagement,
         Logger                   $logger,
         InvoiceHelper            $invoiceHelper,
         SearchCriteriaBuilder    $searchCriteriaBuilder,
-        OrderRepositoryInterface $orderRepository
+        OrderRepositoryInterface $orderRepository,
+        CartManagementInterface  $quoteManagement,
+        ErrorResolver            $errorResolver,
+        QuoteHelper              $quoteHelper
     ) {
         $this->config = $config;
-        $this->order = $order;
         $this->json = $json;
+        $this->jsonFactory = $jsonFactory;
         $this->refund = $refund;
-        $this->orderManagement = $orderManagement;
         $this->logger = $logger;
         $this->invoiceHelper = $invoiceHelper;
         $this->searchCriteriaBuilder = $searchCriteriaBuilder;
         $this->orderRepository = $orderRepository;
+        $this->quoteManagement = $quoteManagement;
+        $this->errorResolver = $errorResolver;
+        $this->quoteHelper = $quoteHelper;
         parent::__construct($context);
     }
+
     public function execute()
     {
         $request = $this->getRequest();
@@ -84,51 +96,37 @@ class Index extends Action implements CsrfAwareActionInterface
         $arrData = $this->json->unserialize((string)$jsonContent);
 
         $magentoOrderId = $arrData['payload']['referenceId'];
-        $orderdetails = $this->order->create()->loadByIncrementId($magentoOrderId);
-        $orderId = $orderdetails->getId();
-
         $this->logger->debugRequest($this, $magentoOrderId);
-        $quoteId = $arrData['payload']['metadata']['quote_id'] ?? null;
-        if ($quoteId && (int)$quoteId !== (int)$orderdetails->getQuoteId()) {
-            $this->logger->debugApiAction($this, $magentoOrderId, 'Incorrect quote id',
-                ['magento' => $orderdetails->getQuoteId(), 'ivy' => $quoteId]
-            );
-            $orderdetails = $this->loadOrderByQuoteId($quoteId);
-            if (!$orderdetails) {
-                return false;
-            }
-        }
 
-        // the webhook should not process the order if it made not via ivy
-        $isIvy = $this->isIvyPayment($orderdetails->getPayment());
-        if ($isIvy) {
-            $this->logger->debugApiAction($this, $magentoOrderId, 'Order', $orderdetails->getData());
-        } else {
-            $this->logger->debugApiAction($this, $magentoOrderId, 'Incorrect order', $orderdetails->getData());
-            return false;
-        }
+        $quoteId = $arrData['payload']['metadata']['quote_id'] ?? null;
+        $quote = $this->quoteHelper->getQuote($magentoOrderId, $quoteId);
 
         if ($arrData['type'] === 'order_updated' || $arrData['type'] === 'order_created')
         {
             switch ($arrData['payload']['status']) {
                 case 'canceled':
-                    if ($orderdetails->canInvoice()) {
-                        $this->orderManagement->cancel($orderId);
-                    }
+                    // do nothing.
                     break;
                 case 'waiting_for_payment':
                 case 'paid':
-                    if ($orderdetails->canInvoice()) {
-                        $this->createInvoice($orderdetails, $arrData);
+                    $newOrder = $this->createOrder($quote);
+
+                    // some problem happened
+                    if (!$newOrder) {
+                        return $this->jsonFactory->create()->setHttpResponseCode(400)->setData([]);
+                    }
+
+                    // order created
+                    if ($newOrder->canInvoice()) {
+                        $this->createInvoice($newOrder, $arrData);
                     } else{
-                        $this->setOrderStatus($orderdetails,'processing');
+                        $this->setOrderStatus($newOrder,'processing');
                     }
                     break;
-                case 'refunded':
-                    $this->orderRefund($orderdetails);
-                break;
             }
         }
+
+        return $this->jsonFactory->create()->setHttpResponseCode(200)->setData([]);
     }
 
     public function createCsrfValidationException(RequestInterface $request): ? InvalidRequestException
@@ -197,7 +195,15 @@ class Index extends Action implements CsrfAwareActionInterface
     }
 
     private function createInvoice(Order $orderdetails, $arrData)
-    {;
+    {
+        // dont invoice if invoice with ivy as payment already exists
+        $invoices = $orderdetails->getInvoiceCollection();
+        foreach ($invoices as $invoice) {
+            if ($invoice->getTransactionId() === $arrData['payload']['id']) {
+                return;
+            }
+        }
+
         $ivyOrderId = $arrData['payload']['id'];
         $this->invoiceHelper->createInvoice($orderdetails, $ivyOrderId);
     }
@@ -223,6 +229,31 @@ class Index extends Action implements CsrfAwareActionInterface
         if ($orders->getTotalCount() > 0) {
             return array_values($orders->getItems())[0];
         } else {
+            return false;
+        }
+    }
+
+    /**
+     * @param $quote
+     * @return false|\Magento\Sales\Api\Data\OrderInterface|null
+     */
+    private function createOrder($quote)
+    {
+        // check if order already exists for this quote
+        $order = $this->loadOrderByQuoteId($quote->getId());
+        if ($order && $order->getId()) {
+            return $order;
+        }
+
+        try {
+            return $this->quoteManagement->submit($quote);
+        } catch (\Exception $exception) {
+            $this->logger->debugApiAction($this, $quote->getId(), 'Quote submit error',
+                [$exception->getMessage()]
+            );
+
+            // return 400 status in this response will trigger the webhook to be sent again
+            $this->errorResolver->forceReserveOrderId($quote);
             return false;
         }
     }
