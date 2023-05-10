@@ -126,6 +126,7 @@ class Index extends Action implements CsrfAwareActionInterface
             $address = $quote->getShippingAddress();
             $address->addData($addressData);
             $address->setCollectShippingRates(true);
+            $address->save();
 
             $shippingMethods = [];
 
@@ -153,8 +154,6 @@ class Index extends Action implements CsrfAwareActionInterface
                     ];
                 }
             }
-
-            $address->save();
 
             $data['shippingMethods'] = $shippingMethods;
         }
