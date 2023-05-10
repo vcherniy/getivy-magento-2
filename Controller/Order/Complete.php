@@ -167,7 +167,9 @@ class Complete extends Action implements CsrfAwareActionInterface
 
             // return 400 status in this callback will cancel order id on the Ivy Payment Processor side
             $this->errorResolver->forceReserveOrderId($quote);
-            return $this->jsonFactory->create()->setHttpResponseCode(400)->setData([]);
+            return $this->jsonFactory->create()->setHttpResponseCode(400)->setData([
+                'exception' => $exception->getMessage()
+            ]);
         }
 
         $this->quoteRepository->save($quote);
