@@ -17,10 +17,13 @@ use Magento\Framework\App\CsrfAwareActionInterface;
 use Magento\Framework\App\RequestInterface;
 use Magento\Framework\App\Request\InvalidRequestException;
 use Magento\Framework\Controller\Result\JsonFactory;
+use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Serialize\Serializer\Json;
+use Magento\Framework\Validator\Exception as ValidatorException;
 use Magento\Quote\Model\Cart\CartTotalRepository;
 use Magento\Quote\Model\Quote\TotalsCollector;
 use Magento\Quote\Model\QuoteRepository;
+use Magento\Quote\Model\QuoteValidator;
 use Magento\Store\Model\StoreManagerInterface;
 
 class Complete extends Action implements CsrfAwareActionInterface
@@ -36,6 +39,7 @@ class Complete extends Action implements CsrfAwareActionInterface
     protected $errorResolver;
     protected $totalsCollector;
     protected $quoteHelper;
+    protected $quoteValidator;
 
     /**
      * @param Context $context
@@ -49,6 +53,7 @@ class Complete extends Action implements CsrfAwareActionInterface
      * @param ErrorResolver $errorResolver
      * @param TotalsCollector $totalsCollector
      * @param QuoteHelper $quoteHelper
+     * @param QuoteValidator $quoteValidator
      */
     public function __construct(
         Context                 $context,
@@ -61,7 +66,8 @@ class Complete extends Action implements CsrfAwareActionInterface
         Logger                  $logger,
         ErrorResolver           $errorResolver,
         TotalsCollector         $totalsCollector,
-        QuoteHelper             $quoteHelper
+        QuoteHelper             $quoteHelper,
+        QuoteValidator          $quoteValidator
     ) {
         $this->config = $config;
         $this->json = $json;
@@ -73,6 +79,7 @@ class Complete extends Action implements CsrfAwareActionInterface
         $this->errorResolver = $errorResolver;
         $this->totalsCollector = $totalsCollector;
         $this->quoteHelper = $quoteHelper;
+        $this->quoteValidator = $quoteValidator;
         parent::__construct($context);
     }
     public function execute()
@@ -92,9 +99,12 @@ class Complete extends Action implements CsrfAwareActionInterface
         }
 
         $shippingAddress = $quote->getShippingAddress();
-        if (!$quote->getBillingAddress()->getFirstname())
-        {
-            $customerBillingData = $customerData['billingAddress'];
+        $billingAddress = $quote->getBillingAddress();
+
+        // customer could set another billing address in checkout or for other payment method before
+        // we should update billing address from ivy in any case
+        $customerBillingData = $customerData['billingAddress'] ?? [];
+        if ($customerBillingData) {
             $billingAddressData = [
                 'firstname'  => $customerBillingData['firstName'],
                 'lastname'   => $customerBillingData['lastName'],
@@ -104,11 +114,12 @@ class Complete extends Action implements CsrfAwareActionInterface
                 'postcode'   => $customerBillingData['zipCode'],
                 'telephone'  => $shippingAddress->getTelephone()
             ];
-            $quote->getBillingAddress()->addData($billingAddressData);
+            $billingAddress->addData($billingAddressData);
+            $billingAddress->save();
         }
 
-        $quote->setCustomerFirstname($quote->getBillingAddress()->getFirstname());
-        $quote->setCustomerLastname($quote->getBillingAddress()->getLastname());
+        $quote->setCustomerFirstname($billingAddress->getFirstname());
+        $quote->setCustomerLastname($billingAddress->getLastname());
 
         if (!$quote->isVirtual()) {
             if (isset($customerData['shippingMethod']['reference'])) {
@@ -144,6 +155,21 @@ class Complete extends Action implements CsrfAwareActionInterface
             // return 400 status in this callback will cancel order id on the Ivy Payment Processor side
             $this->errorResolver->forceReserveOrderId($quote);
             return $this->jsonFactory->create()->setHttpResponseCode(400)->setData([]);
+        }
+
+        try {
+            $this->quoteValidator->validateBeforeSubmit($quote);
+            $quote->getPayment()->getMethodInstance()->validate();
+        } catch (ValidatorException|LocalizedException $exception) {
+            $this->logger->debugApiAction($this, $magentoOrderId, 'Validator exception',
+                ['message' => $exception->getMessage()]
+            );
+
+            // return 400 status in this callback will cancel order id on the Ivy Payment Processor side
+            $this->errorResolver->forceReserveOrderId($quote);
+            return $this->jsonFactory->create()->setHttpResponseCode(400)->setData([
+                'exception' => $exception->getMessage()
+            ]);
         }
 
         $this->quoteRepository->save($quote);
