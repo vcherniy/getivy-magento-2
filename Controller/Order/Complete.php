@@ -17,6 +17,7 @@ use Magento\Framework\App\CsrfAwareActionInterface;
 use Magento\Framework\App\RequestInterface;
 use Magento\Framework\App\Request\InvalidRequestException;
 use Magento\Framework\Controller\Result\JsonFactory;
+use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Serialize\Serializer\Json;
 use Magento\Framework\Validator\Exception as ValidatorException;
 use Magento\Quote\Model\Cart\CartTotalRepository;
@@ -158,7 +159,8 @@ class Complete extends Action implements CsrfAwareActionInterface
 
         try {
             $this->quoteValidator->validateBeforeSubmit($quote);
-        } catch (ValidatorException $exception) {
+            $quote->getPayment()->getMethodInstance()->validate();
+        } catch (ValidatorException|LocalizedException $exception) {
             $this->logger->debugApiAction($this, $magentoOrderId, 'Validator exception',
                 ['message' => $exception->getMessage()]
             );
