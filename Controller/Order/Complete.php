@@ -104,10 +104,10 @@ class Complete extends Action implements CsrfAwareActionInterface
         // customer could set another billing address in checkout or for other payment method before
         // we should update billing address from ivy in any case
         $customerBillingData = $customerData['billingAddress'] ?? [];
-        if ($customerBillingData) {
+        if ($customerBillingData && $customerData['express']) {
             $billingAddressData = [
                 'firstname'  => $customerBillingData['firstName'],
-                'lastname'   => $customerBillingData['lastName'],
+                'lastname'   => $customerBillingData['lastName'] ?? '',
                 'street'     => $customerBillingData['line1'],
                 'city'       => $customerBillingData['city'],
                 'country_id' => $customerBillingData['country'],
