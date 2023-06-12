@@ -6,39 +6,26 @@ namespace Esparksinc\IvyPayment\Model;
 
 use Magento\Framework\App\Action\Action;
 use Magento\Framework\App\Config\ScopeConfigInterface;
+use Magento\Framework\App\RequestInterface;
 use Magento\Framework\Logger\Monolog;
 use Magento\Framework\Serialize\Serializer\Json;
-use Monolog\DateTimeImmutable;
 
-class Logger extends Monolog
+class Logger
 {
     protected const DEBUG_ENABLED_PATH = 'payment/ivy/debug';
     protected $scopeConfig;
+    protected $logger;
     protected $json;
     protected $isEnabled = null;
 
     public function __construct(
         ScopeConfigInterface $scopeConfig,
         Json $json,
-        string $name,
-        array $handlers = [],
-        array $processors = []
+        Monolog $logger
     ) {
         $this->scopeConfig = $scopeConfig;
         $this->json = $json;
-        parent::__construct($name, $handlers, $processors);
-    }
-
-    public function addRecord(int $level, string $message, array $context = [], DateTimeImmutable $datetime = null): bool
-    {
-        if ($this->isEnabled === null) {
-            $this->isEnabled = (bool) $this->scopeConfig->getValue(self::DEBUG_ENABLED_PATH);
-        }
-
-        if ($this->isEnabled) {
-            return parent::addRecord($level, $message, $context, $datetime);
-        }
-        return false;
+        $this->logger = $logger;
     }
 
     /**
@@ -54,6 +41,10 @@ class Logger extends Monolog
         string $message,
         array $context = []
     ) {
+        if (!$this->scopeConfig->isSetFlag(self::DEBUG_ENABLED_PATH)) {
+            return;
+        }
+
         if ($initiatorName instanceof Action) {
             /** @var \Magento\Framework\App\Request\Http $request */
             $request = $initiatorName->getRequest();
@@ -65,19 +56,32 @@ class Logger extends Monolog
             $initiatorName,
             $message
         );
-        $this->debug($message, $context);
+        $this->logger->debug($message, $context);
     }
 
+    /**
+     * @param Action $controller
+     * @param string $orderId
+     * @return void
+     */
     public function debugRequest(
         Action $controller,
         string $orderId
     ) {
+        if (!$this->scopeConfig->isSetFlag(self::DEBUG_ENABLED_PATH)) {
+            return;
+        }
+
         /** @var \Magento\Framework\App\Request\Http $request */
         $request = $controller->getRequest();
         $requestData = $this->getRequestData($request);
         $this->debugApiAction($controller, $orderId, 'Request', $requestData);
     }
 
+    /**
+     * @param RequestInterface $request
+     * @return array
+     */
     protected function getRequestData($request): array
     {
         $result = [];

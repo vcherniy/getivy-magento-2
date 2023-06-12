@@ -12,6 +12,7 @@ use Esparksinc\IvyPayment\Helper\Quote as QuoteHelper;
 use Esparksinc\IvyPayment\Model\Config;
 use Esparksinc\IvyPayment\Model\ErrorResolver;
 use Esparksinc\IvyPayment\Model\Logger;
+use Esparksinc\IvyPayment\Model\System\Config\Statuses;
 use Magento\Framework\Api\SearchCriteriaBuilder;
 use Magento\Framework\App\Action\Action;
 use Magento\Framework\App\Action\Context;
@@ -109,6 +110,7 @@ class Index extends Action implements CsrfAwareActionInterface
                     break;
                 case 'waiting_for_payment':
                 case 'paid':
+                    /** @var Order $newOrder */
                     $newOrder = $this->createOrder($quote);
 
                     // some problem happened
@@ -116,11 +118,22 @@ class Index extends Action implements CsrfAwareActionInterface
                         return $this->jsonFactory->create()->setHttpResponseCode(400)->setData([]);
                     }
 
+                    $orderStatus = $this->config->getMapWaitingForPaymentStatus();
+                    /*
+                     * If that is a "paid" callback or the order status should be "paid"
+                     */
+                    $makePaid = $arrData['payload']['status'] == 'paid' || $orderStatus == Statuses::PAID;
+
                     // order created
-                    if ($newOrder->canInvoice()) {
+                    if ($newOrder->canInvoice() && $makePaid) {
                         $this->createInvoice($newOrder, $arrData);
                     } else{
-                        $this->setOrderStatus($newOrder,'processing');
+                        /*
+                         * it support the legacy logic:
+                         * if order should but can't be invoiced then set the "processing" status
+                         */
+                        $newOrder->setStatus($makePaid ? 'processing': $orderStatus);
+                        $newOrder->save();
                     }
                     break;
             }
@@ -182,15 +195,6 @@ class Index extends Action implements CsrfAwareActionInterface
             if ($invoiceId) {
                 $this->refund->execute($invoiceId,[],true);
             }
-        }
-    }
-
-    private function setOrderStatus(Order $orderdetails, $status)
-    {
-        if($orderdetails->getState() === 'processing')
-        {
-            $orderdetails->setStatus($status);
-            $orderdetails->save();
         }
     }
 

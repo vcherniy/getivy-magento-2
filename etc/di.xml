@@ -8,12 +8,17 @@
             <argument name="fileName" xsi:type="string">/var/log/ivy-api.log</argument>
         </arguments>
     </virtualType>
-    <type name="Esparksinc\IvyPayment\Model\Logger">
+    <virtualType name="Esparksinc\IvyPayment\Logger\IvyLogger" type="Magento\Framework\Logger\Monolog">
         <arguments>
             <argument name="name" xsi:type="string">Ivy Api Logger</argument>
             <argument name="handlers" xsi:type="array">
                 <item name="system" xsi:type="object">Esparksinc\IvyPayment\Logger\Handler</item>
             </argument>
+        </arguments>
+    </virtualType>
+    <type name="Esparksinc\IvyPayment\Model\Logger">
+        <arguments>
+            <argument name="logger" xsi:type="object">Esparksinc\IvyPayment\Logger\IvyLogger</argument>
         </arguments>
     </type>
 </config>
