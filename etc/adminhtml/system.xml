@@ -60,7 +60,7 @@
                     </depends>
 				</field>
                 <field id="map_waiting_for_payment_status" type="select" sortOrder="80" showInWebsite="1" showInStore="0" showInDefault="1" translate="label">
-                    <label>Map Ivy Waiting For Payment Status</label>
+                    <label>Magento Status for Authorised Ivy Payments</label>
                     <source_model>Esparksinc\IvyPayment\Model\System\Config\Statuses</source_model>
                     <depends>
                         <field id="active">1</field>
