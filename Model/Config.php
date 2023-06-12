@@ -19,6 +19,8 @@ class Config
     const CONFIG_IVY_WEBHOOK_SANDBOX = 'payment/ivy/sandbox_webhook_secret';
     const CONFIG_IVY_WEBHOOK_LIVE = 'payment/ivy/webhook_secret';
 
+    const CONFIG_IVY_MAP_WFP_STATUS = 'payment/ivy/map_waiting_for_payment_status';
+
     const IVY_API_URL_LIVE = 'https://api.getivy.de/api/service/';
     const IVY_API_URL_SANDBOX = 'https://api.sand.getivy.de/api/service/';
 
@@ -88,6 +90,11 @@ class Config
     public function getSandbox($storeId = null)
     {
         return $this->getValue(self::CONFIG_IVY_SANDBOX, $storeId);
+    }
+
+    public function getMapWaitingForPaymentStatus($storeId = null)
+    {
+        return $this->getValue(self::CONFIG_IVY_MAP_WFP_STATUS, $storeId);
     }
 
     public function getLocale($storeId = null)

@@ -59,10 +59,17 @@
 						<field id="sandbox">0</field>
                     </depends>
 				</field>
-				<field id="sort_order" type="text" sortOrder="80" showInWebsite="1" showInStore="1" showInDefault="1" translate="label">
+                <field id="map_waiting_for_payment_status" type="select" sortOrder="80" showInWebsite="1" showInStore="0" showInDefault="1" translate="label">
+                    <label>Map Ivy Waiting For Payment Status</label>
+                    <source_model>Esparksinc\IvyPayment\Model\System\Config\Statuses</source_model>
+                    <depends>
+                        <field id="active">1</field>
+                    </depends>
+                </field>
+				<field id="sort_order" type="text" sortOrder="90" showInWebsite="1" showInStore="1" showInDefault="1" translate="label">
 					<label>Sort Order</label>
 				</field>
-				<group id="frontend_settings" translate="label" showInDefault="1" showInWebsite="1" showInStore="1" sortOrder="80">
+				<group id="frontend_settings" translate="label" showInDefault="1" showInWebsite="1" showInStore="1" sortOrder="100">
 					<label>Frontend Settings</label>
 					<fieldset_css>config-advanced</fieldset_css>
 					<depends>
