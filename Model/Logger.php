@@ -29,6 +29,19 @@ class Logger
     }
 
     /**
+     * Adds a log record at the DEBUG level.
+     *
+     * This method allows for compatibility with common interfaces.
+     *
+     * @param string|Stringable $message The log message
+     * @param mixed[]           $context The log context
+     */
+    public function debug($message, array $context = [])
+    {
+        $this->logger->debug($message, $context);
+    }
+
+    /**
      * @param Action|string $initiatorName
      * @param string $orderId
      * @param string $message
