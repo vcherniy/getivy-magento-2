@@ -39,7 +39,9 @@ class Statuses implements \Magento\Framework\Option\ArrayInterface
      */
     public function toArray()
     {
-        $statuses = $this->config->getStateStatuses('processing');
+        $statuses = $this->config->getStateStatuses('new');
+        $statuses = array_merge($statuses, $this->config->getStateStatuses('pending_payment'));
+        $statuses = array_merge($statuses, $this->config->getStateStatuses('processing'));
         $statuses[self::PAID] = (string)__('Paid');
         unset($statuses['fraud']);
         return $statuses;
