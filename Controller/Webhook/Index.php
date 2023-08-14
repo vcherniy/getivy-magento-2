@@ -96,50 +96,74 @@ class Index extends Action implements CsrfAwareActionInterface
         $jsonContent = $request->getContent();
         $arrData = $this->json->unserialize((string)$jsonContent);
 
-        $magentoOrderId = $arrData['payload']['referenceId'];
+        // request type can be "merchant_app_updated" without paypload > referenceId field
+        $magentoOrderId = $arrData['payload']['referenceId'] ?? 'unknown';
         $this->logger->debugRequest($this, $magentoOrderId);
 
-        $quoteId = $arrData['payload']['metadata']['quote_id'] ?? null;
-        $quote = $this->quoteHelper->getQuote($magentoOrderId, $quoteId);
+        $resultStatusCode = 200;
 
         if ($arrData['type'] === 'order_updated' || $arrData['type'] === 'order_created')
         {
+            $quoteId = $arrData['payload']['metadata']['quote_id'] ?? null;
+            $quote = $this->quoteHelper->getQuote($magentoOrderId, $quoteId);
+            
+            $newOrderStatus = $this->config->getMapWaitingForPaymentStatus();
+            // if invoice should be created without confirmation from Ivy payment system
+            $createInvoiceImmediately = $newOrderStatus == Statuses::PAID;
+
             switch ($arrData['payload']['status']) {
                 case 'canceled':
                     // do nothing.
                     break;
                 case 'waiting_for_payment':
-                case 'paid':
                     /** @var Order $newOrder */
-                    $newOrder = $this->createOrder($quote);
+                    $newOrder = $this->retrieveOrder($quote);
 
                     // some problem happened
                     if (!$newOrder) {
-                        return $this->jsonFactory->create()->setHttpResponseCode(400)->setData([]);
+                        $resultStatusCode = 400;
+                        break;
                     }
 
-                    $orderStatus = $this->config->getMapWaitingForPaymentStatus();
-                    /*
-                     * If that is a "paid" callback or the order status should be "paid"
-                     */
-                    $makePaid = $arrData['payload']['status'] == 'paid' || $orderStatus == Statuses::PAID;
-
-                    // order created
-                    if ($newOrder->canInvoice() && $makePaid) {
+                    if ($createInvoiceImmediately && $newOrder->canInvoice()) {
                         $this->createInvoice($newOrder, $arrData);
-                    } else{
-                        /*
-                         * it support the legacy logic:
-                         * if order should but can't be invoiced then set the "processing" status
-                         */
-                        $newOrder->setStatus($makePaid ? 'processing': $orderStatus);
+                    }
+
+                    $newOrder->setStatus($createInvoiceImmediately ? 'processing': $newOrderStatus);
+                    $newOrder->save();
+
+                    break;
+
+                case 'paid':
+                    /** @var Order $newOrder */
+                    $newOrder = $this->retrieveOrder($quote);
+
+                    // some problem happened
+                    if (!$newOrder) {
+                        $resultStatusCode = 400;
+                        break;
+                    }
+
+                    /*
+                     * An invoice should be created at the moment.
+                     * Return success status to Ivy but do nothing.
+                     */
+                    if ($createInvoiceImmediately) {
+                        break;
+                    }
+
+                    if ($newOrder->canInvoice()) {
+                        $this->createInvoice($newOrder, $arrData);
+                    } else {
+                        $newOrder->setStatus('processing');
                         $newOrder->save();
                     }
+
                     break;
             }
         }
 
-        return $this->jsonFactory->create()->setHttpResponseCode(200)->setData([]);
+        return $this->jsonFactory->create()->setHttpResponseCode($resultStatusCode)->setData([]);
     }
 
     public function createCsrfValidationException(RequestInterface $request): ? InvalidRequestException
@@ -200,15 +224,16 @@ class Index extends Action implements CsrfAwareActionInterface
 
     private function createInvoice(Order $orderdetails, $arrData)
     {
-        // dont invoice if invoice with ivy as payment already exists
+        $ivyOrderId = $arrData['payload']['id'];
+
+        // don't invoice if invoice with ivy as payment already exists
         $invoices = $orderdetails->getInvoiceCollection();
         foreach ($invoices as $invoice) {
-            if ($invoice->getTransactionId() === $arrData['payload']['id']) {
+            if ($invoice->getTransactionId() === $ivyOrderId) {
                 return;
             }
         }
 
-        $ivyOrderId = $arrData['payload']['id'];
         $this->invoiceHelper->createInvoice($orderdetails, $ivyOrderId);
     }
 
@@ -238,10 +263,12 @@ class Index extends Action implements CsrfAwareActionInterface
     }
 
     /**
+     * Create or load already exists order
+     *
      * @param $quote
      * @return false|\Magento\Sales\Api\Data\OrderInterface|null
      */
-    private function createOrder($quote)
+    private function retrieveOrder($quote)
     {
         // check if order already exists for this quote
         $order = $this->loadOrderByQuoteId($quote->getId());
